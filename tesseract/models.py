@@ -124,7 +124,9 @@ class Config(object):
     def remote_call(self, func, docker=None, cpu_cores=None,
                     ram_gb=None, disk_gb=None, libraries=[],
                     **kwargs):
-        runner = RemoteTaskRunner(func, kwargs)
+        if not isinstance(func, Callable):
+            raise TypeError("func not an instance of collections.Callable")
+        runner = {"func": func, "kwargs": kwargs}
         cp_str = cloudpickle.dumps(runner)
         input_cp_url = self.file_store.create(contents=cp_str)
         output_cp_url = urlparse(
@@ -161,25 +163,14 @@ class File(object):
 
 @attrs
 class RemoteTaskHandle(object):
-    id = attrib(validator=instance_of(str))
+    id = attrib(convert=str, validator=instance_of(str))
     output = attrib(validator=instance_of(str))
     file_store = attrib(validator=instance_of(FileStore))
     client = attrib(validator=instance_of(tes.HTTPClient))
 
     def get_result(self):
-        r = self.client.wait()
+        r = self.client.wait(self.id)
         if r.state != "COMPLETE":
             raise RuntimeError("remote job failed\n%s" % (r))
         path = self.file_store.download(self.output)
         return cloudpickle.loads(path)
-
-
-class RemoteTaskRunner(object):
-    def __init__(self, func, kwargs):
-        if not isinstance(func, Callable):
-            raise ValueError("func must be callable")
-        self.func = func
-        self.kwargs = kwargs
-
-    def run(self):
-        return self.func(**self.kwargs)
