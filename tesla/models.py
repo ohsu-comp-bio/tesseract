@@ -44,9 +44,9 @@ class FileStore(object):
 
 @attrs
 class Config(object):
-    tes_url = attrib(default="localhost:8000/v1/tasks")
-    tes_client = attrib(init=False)
     file_store = attrib(validator=instance_of(FileStore))
+    tes_url = attrib(default="localhost:8000")
+    tes_client = attrib(init=False)
 
     @tes_url.validator
     def check_url(self, attribute, value):
@@ -55,7 +55,7 @@ class Config(object):
             raise ValueError("%s must be a valid URL" % (attribute))
 
     def __attrs_post_init__(self):
-        self.tes_client = tes.HTPPClient(self.tes_url)
+        self.tes_client = tes.HTTPClient(self.tes_url)
 
     def file(self, path):
         u = urlparse(path)
@@ -113,7 +113,7 @@ class RemoteTaskHandle(object):
 
 
 class RemoteTaskRunner(object):
-    def __init__(self, func, **kwargs):
+    def __init__(self, func, kwargs):
         if not isinstance(func, Callable):
             raise ValueError("func must be callable")
         self.func = func

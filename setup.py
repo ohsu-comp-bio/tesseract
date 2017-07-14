@@ -23,7 +23,7 @@ setup(
     install_requires=[
         "attrs>=17.2.0",
         "cloudpickle>=0.3.1",
-        "tes>=0.1"
+        "tes>=1.1.1"
     ],
     zip_safe=True
 )
