@@ -11,14 +11,14 @@ SETUP_DIR = os.path.dirname(__file__)
 README = os.path.join(SETUP_DIR, 'README.md')
 
 setup(
-    name='tesla',
+    name='tesseract',
     version='0.1',
     description='Remote code execution with the GA4GH Task Execution API',
     long_description=open(README).read(),
     author='Adam Struck',
     author_email='strucka@ohsu.edu',
-    url="https://github.com/ohsu-comp-bio/tesla",
-    download_url="https://github.com/ohsu-comp-bio/tesla",
+    url="https://github.com/ohsu-comp-bio/tesseract",
+    download_url="https://github.com/ohsu-comp-bio/tesseract",
     license='MIT',
     install_requires=[
         "attrs>=17.2.0",

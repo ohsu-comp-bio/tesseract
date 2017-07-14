@@ -9,7 +9,7 @@ def run(pickled_func):
     f = pickle.loads(open(pickled_func, "r").read())
     res = f.run()
     res_cp = cloudpickle.dumps(res)
-    with open("/tmp/tesla_result.pickle", "w") as fh:
+    with open("/tmp/tesseract_result.pickle", "w") as fh:
         fh.write(res_cp)
     return
 

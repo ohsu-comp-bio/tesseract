@@ -16,21 +16,21 @@ def _create_task(file_store, cp_runner, input_files, docker,
         docker = "python:2.7"
 
     cmd_install_reqs = "pip install %s" % (" ".join(to_install))
-    cmd_tesla = "python /tmp/tesla.py /tmp/tesla_func.pickle"
-    cmd = cmd_install_reqs + " && " + cmd_tesla
+    cmd_tesseract = "python /tmp/tesseract.py /tmp/tesseract_func.pickle"
+    cmd = cmd_install_reqs + " && " + cmd_tesseract
 
     task = tes.Task(
-        name="tesla remote execution",
+        name="tesseract remote execution",
         inputs=[
             tes.TaskParameter(
-                name="tesla runner script",
-                path="/tmp/tesla.py",
+                name="tesseract runner script",
+                path="/tmp/tesseract.py",
                 type="FILE",
                 contents=open(RUNNER, "r").read()
             ),
             tes.TaskParameter(
                 name="pickled func",
-                path="/tmp/tesla_func.pickle",
+                path="/tmp/tesseract_func.pickle",
                 type="FILE",
                 contents=cp_runner
             )
@@ -38,8 +38,8 @@ def _create_task(file_store, cp_runner, input_files, docker,
         outputs=[
             tes.TaskParameter(
                 name="pickled result",
-                url=file_store.path + "/" + "tesla_result.pickle",
-                path="/tmp/tesla_result.pickle",
+                url=file_store.path + "/" + "tesseract_result.pickle",
+                path="/tmp/tesseract_result.pickle",
                 type="FILE"
             )
         ],

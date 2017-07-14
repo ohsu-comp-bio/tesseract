@@ -9,7 +9,7 @@ from attr.validators import instance_of
 from collections import Callable
 from urlparse import urlparse
 
-from tesla.utils import _create_task
+from tesseract.utils import _create_task
 
 
 @attrs
@@ -82,7 +82,7 @@ class Config(object):
         id = self.tes_client.create_task(task_msg)
         return RemoteTaskHandle(
             id,
-            self.file_store.path + "/" + "tesla_result.pickle"
+            self.file_store.path + "/" + "tesseract_result.pickle"
         )
 
 
