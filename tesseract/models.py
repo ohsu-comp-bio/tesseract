@@ -171,6 +171,6 @@ class RemoteTaskHandle(object):
     def get_result(self):
         r = self.client.wait(self.id)
         if r.state != "COMPLETE":
-            raise RuntimeError("remote job failed\n%s" % (r))
+            raise RuntimeError("remote job failed:\n%s" % (r))
         path = self.file_store.download(self.output)
-        return cloudpickle.loads(path)
+        return cloudpickle.load(open(path, "rb"))

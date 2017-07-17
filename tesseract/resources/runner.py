@@ -5,11 +5,9 @@ import cloudpickle
 
 
 def run(pickled_runner):
-    f = cloudpickle.loads(open(pickled_runner, "rb").read())
+    f = cloudpickle.load(open(pickled_runner, "rb"))
     res = f["func"](**f["kwargs"])
-    res_cp = cloudpickle.dumps(res)
-    with open("/tmp/tesseract_result.pickle", "wb") as fh:
-        fh.write(res_cp)
+    cloudpickle.dump(res, open("/tmp/tesseract_result.pickle", "wb"))
     return
 
 
