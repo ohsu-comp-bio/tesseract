@@ -24,11 +24,13 @@ def say_hello(a, b):
 
 
 fs = FileStore("./test_store/")
-t = Config(fs, "http://localhost:8000")
-r = t.resource_request(cpu_cores=1, ram_gb=4, disk_gb=None, 
-                       docker="python:2.7", libraries=["scipy"])
-result = r.remote_call(say_hello, "!", b="world")
-result.get()
+r = Config(fs, "http://localhost:8000")
+r = r.resource_request(
+    cpu_cores=1, ram_gb=4, disk_gb=None, 
+    docker="python:2.7", libraries=["cloudpickle", "scipy"]
+)
+future = r.remote_call(say_hello, "!", b="world")
+result = future.result()
 print(result)
 ```
 
