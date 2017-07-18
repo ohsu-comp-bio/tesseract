@@ -17,8 +17,7 @@ def _create_task(input_cp_url, output_cp_url, input_files,
     runner_path = "/tmp/tesseract.py"
     input_cp_path = "/tmp/tesseract_func.pickle"
 
-    to_install = ["cloudpickle"] + libraries
-    cmd_install_reqs = "pip install %s" % (" ".join(to_install))
+    cmd_install_reqs = "pip install %s" % (" ".join(libraries))
     cmd_tesseract = "python %s %s" % (runner_path, input_cp_path)
 
     if docker is None:

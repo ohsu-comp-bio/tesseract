@@ -3,11 +3,13 @@ from __future__ import absolute_import, print_function
 import cloudpickle
 import os
 import tes
+import time
 import uuid
 
 from attr import attrs, attrib, evolve
 from attr.validators import instance_of, optional
 from collections import Callable
+from concurrent.futures import ThreadPoolExecutor
 from urlparse import urlparse
 
 from tesseract.utils import _create_task, makedirs, process_url
@@ -107,7 +109,7 @@ class Config(object):
     disk_gb = attrib(
         default=None, validator=optional(instance_of((int, float)))
     )
-    docker = attrib(default="python2:7", validator=optional(instance_of(str)))
+    docker = attrib(default="python:2.7", validator=optional(instance_of(str)))
     libraries = attrib(
         default=["cloudpickle"], validator=tes.models.list_of(str)
     )
@@ -122,7 +124,7 @@ class Config(object):
         self.tes_client = tes.HTTPClient(self.tes_url)
 
     def resource_request(self, cpu_cores=None, ram_gb=None, disk_gb=None,
-                         docker="python2.7", libraries=["cloudpickle"]):
+                         docker="python:2.7", libraries=["cloudpickle"]):
         return evolve(
             self, cpu_cores=cpu_cores, ram_gb=ram_gb, disk_gb=disk_gb,
             docker=docker, libraries=libraries
@@ -158,7 +160,7 @@ class Config(object):
             self.docker, self.libraries
         )
         id = self.tes_client.create_task(task_msg)
-        return ResultPromise(
+        return Future(
             id,
             output_cp_url,
             self.file_store,
@@ -179,18 +181,47 @@ class File(object):
 
 
 @attrs
-class ResultPromise(object):
+class Future(object):
     __id = attrib(convert=str, validator=instance_of(str))
-    __output = attrib(validator=instance_of(str))
+    __output_url = attrib(validator=instance_of(str))
     __file_store = attrib(validator=instance_of(FileStore))
     __client = attrib(validator=instance_of(tes.HTTPClient))
+    __execption = attrib(
+        init=False, default=None, validator=optional(instance_of(Exception))
+    )
+    __result = attrib(init=False, default=None)
 
-    def get(self):
+    def __attrs_post_init__(self):
+        pool = ThreadPoolExecutor(1)
+        self.__result = pool.submit(self.__poll)
+
+    def __poll(self):
         r = self.__client.wait(self.__id)
         if r.state != "COMPLETE":
+            r = self.__client.get_task(self.__id, "FULL")
             raise RuntimeError("remote job failed:\n%s" % (r))
-        path = self.__file_store.download(self.__output)
+        path = self.__file_store.download(self.__output_url)
         return cloudpickle.load(open(path, "rb"))
 
-    def stop(self):
-        return self.__client.cancel(self.__id)
+    def result(self, timeout=None):
+        return self.__result.result(timeout=timeout)
+
+    def exeception(self, timeout=None):
+        return self.__result.exception(timeout=timeout)
+
+    def running(self):
+        r = self.__client.get_task(self.__id, "MINIMAL")
+        return r.state in["QUEUED", "INITIALIZING", "RUNNING"]
+
+    def done(self):
+        r = self.__client.get_task(self.__id, "MINIMAL")
+        return r.state in ["COMPLETE", "ERROR", "SYSTEM_ERROR", "CANCELED"]
+
+    def cancel(self):
+        self.__result.cancel()
+        self.__client.cancel(self.__id)
+        return True
+
+    def cancelled(self):
+        r = self.__client.get_task(self.__id, "MINIMAL")
+        return r.state == "CANCELED"
