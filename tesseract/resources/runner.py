@@ -6,7 +6,7 @@ import cloudpickle
 
 def run(pickled_runner):
     f = cloudpickle.load(open(pickled_runner, "rb"))
-    res = f["func"](**f["kwargs"])
+    res = f["func"](*f["args"], **f["kwargs"])
     cloudpickle.dump(res, open("/tmp/tesseract_result.pickle", "wb"))
     return
 

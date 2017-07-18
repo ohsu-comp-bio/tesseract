@@ -19,14 +19,16 @@ def identity(n):
     return n
 
 
-def say_hello(s):
-    return "hello " + identity(s)
+def say_hello(a, b):
+    return "hello " + identity(a) + b
 
 
 fs = FileStore("./test_store/")
 t = Config(fs, "http://localhost:8000")
-h = t.remote_call(say_hello, s="world")
-result = h.get_result()
+r = t.resource_request(cpu_cores=1, ram_gb=4, disk_gb=None, 
+                       docker="python:2.7", libraries=["scipy"])
+result = r.remote_call(say_hello, "!", b="world")
+result.get()
 print(result)
 ```
 

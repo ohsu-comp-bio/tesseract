@@ -5,8 +5,8 @@ import os
 import tes
 import uuid
 
-from attr import attrs, attrib
-from attr.validators import instance_of
+from attr import attrs, attrib, evolve
+from attr.validators import instance_of, optional
 from collections import Callable
 from urlparse import urlparse
 
@@ -100,6 +100,17 @@ class Config(object):
     file_store = attrib(validator=instance_of(FileStore))
     tes_url = attrib(default="localhost:8000")
     tes_client = attrib(init=False)
+    cpu_cores = attrib(default=None, validator=optional(instance_of(int)))
+    ram_gb = attrib(
+        default=None, validator=optional(instance_of((int, float)))
+    )
+    disk_gb = attrib(
+        default=None, validator=optional(instance_of((int, float)))
+    )
+    docker = attrib(default="python2:7", validator=optional(instance_of(str)))
+    libraries = attrib(
+        default=["cloudpickle"], validator=tes.models.list_of(str)
+    )
 
     @tes_url.validator
     def check_url(self, attribute, value):
@@ -109,6 +120,13 @@ class Config(object):
 
     def __attrs_post_init__(self):
         self.tes_client = tes.HTTPClient(self.tes_url)
+
+    def resource_request(self, cpu_cores=None, ram_gb=None, disk_gb=None,
+                         docker="python2.7", libraries=["cloudpickle"]):
+        return evolve(
+            self, cpu_cores=cpu_cores, ram_gb=ram_gb, disk_gb=disk_gb,
+            docker=docker, libraries=libraries
+        )
 
     def file(self, path):
         u = urlparse(path)
@@ -121,12 +139,10 @@ class Config(object):
 
         return File(url, path)
 
-    def remote_call(self, func, docker=None, cpu_cores=None,
-                    ram_gb=None, disk_gb=None, libraries=[],
-                    **kwargs):
+    def remote_call(self, func, *args, **kwargs):
         if not isinstance(func, Callable):
             raise TypeError("func not an instance of collections.Callable")
-        runner = {"func": func, "kwargs": kwargs}
+        runner = {"func": func, "args": args, "kwargs": kwargs}
         cp_str = cloudpickle.dumps(runner)
         input_cp_url = self.file_store.create(contents=cp_str)
         output_cp_url = urlparse(
@@ -137,11 +153,12 @@ class Config(object):
             if isinstance(v, File):
                 inputs.append(v)
         task_msg = _create_task(
-            input_cp_url, output_cp_url, inputs, docker,
-            cpu_cores, ram_gb, disk_gb, libraries
+            input_cp_url, output_cp_url, inputs,
+            self.cpu_cores, self.ram_gb, self.disk_gb,
+            self.docker, self.libraries
         )
         id = self.tes_client.create_task(task_msg)
-        return RemoteTaskHandle(
+        return ResultPromise(
             id,
             output_cp_url,
             self.file_store,
@@ -162,15 +179,18 @@ class File(object):
 
 
 @attrs
-class RemoteTaskHandle(object):
-    id = attrib(convert=str, validator=instance_of(str))
-    output = attrib(validator=instance_of(str))
-    file_store = attrib(validator=instance_of(FileStore))
-    client = attrib(validator=instance_of(tes.HTTPClient))
+class ResultPromise(object):
+    __id = attrib(convert=str, validator=instance_of(str))
+    __output = attrib(validator=instance_of(str))
+    __file_store = attrib(validator=instance_of(FileStore))
+    __client = attrib(validator=instance_of(tes.HTTPClient))
 
-    def get_result(self):
-        r = self.client.wait(self.id)
+    def get(self):
+        r = self.__client.wait(self.__id)
         if r.state != "COMPLETE":
             raise RuntimeError("remote job failed:\n%s" % (r))
-        path = self.file_store.download(self.output)
+        path = self.__file_store.download(self.__output)
         return cloudpickle.load(open(path, "rb"))
+
+    def stop(self):
+        return self.__client.cancel(self.__id)

@@ -12,7 +12,7 @@ RUNNER = os.path.join(PACKAGE_DIR, "resources", "runner.py")
 
 
 def _create_task(input_cp_url, output_cp_url, input_files,
-                 docker, cpu_cores, ram_gb, disk_gb, libraries):
+                 cpu_cores, ram_gb, disk_gb, docker, libraries):
 
     runner_path = "/tmp/tesseract.py"
     input_cp_path = "/tmp/tesseract_func.pickle"
@@ -23,9 +23,11 @@ def _create_task(input_cp_url, output_cp_url, input_files,
 
     if docker is None:
         docker = "python:2.7"
-        cmd = cmd_install_reqs + " && " + cmd_tesseract
-    else:
+
+    if len(libraries) == 0:
         cmd = cmd_tesseract
+    else:
+        cmd = cmd_install_reqs + " && " + cmd_tesseract
 
     task = tes.Task(
         name="tesseract remote execution",
