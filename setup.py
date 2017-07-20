@@ -1,29 +1,32 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
+from setuptools import setup, find_packages
 
-import os
-
-from setuptools import setup
-
-
-SETUP_DIR = os.path.dirname(__file__)
-README = os.path.join(SETUP_DIR, 'README.md')
 
 setup(
     name='tesseract',
-    version='0.1',
+    version='0.1.0',
     description='Remote code execution with the GA4GH Task Execution API',
-    long_description=open(README).read(),
-    author='Adam Struck',
-    author_email='strucka@ohsu.edu',
+    author='OHSU Computational Biology',
+    author_email='CompBio@ohsu.edu',
+    maintainer='Adam Struck',
+    maintainer_email='strucka@ohsu.edu',
     url="https://github.com/ohsu-comp-bio/tesseract",
-    download_url="https://github.com/ohsu-comp-bio/tesseract",
     license='MIT',
+    packages=find_packages(),
+    python_requires='>=2.6, <3',
     install_requires=[
         "attrs>=17.2.0",
         "cloudpickle>=0.3.1",
-        "tes>=1.1.1"
+        "py-tes>=0.1.0"
     ],
-    zip_safe=True
+    zip_safe=True,
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'Natural Language :: English',
+        'License :: OSI Approved :: MIT License',
+        'Topic :: Software Development :: Libraries',
+        'Programming Language :: Python :: 2.7',
+    ],
 )

@@ -2,81 +2,8 @@ from __future__ import absolute_import, print_function
 
 import errno
 import os
-import tes
 
 from urlparse import urlparse
-
-
-PACKAGE_DIR = os.path.dirname(__file__)
-RUNNER = os.path.join(PACKAGE_DIR, "resources", "runner.py")
-
-
-def _create_task(input_cp_url, output_cp_url, input_files,
-                 cpu_cores, ram_gb, disk_gb, docker, libraries):
-
-    runner_path = "/tmp/tesseract.py"
-    input_cp_path = "/tmp/tesseract_func.pickle"
-
-    cmd_install_reqs = "pip install %s" % (" ".join(libraries))
-    cmd_tesseract = "python %s %s" % (runner_path, input_cp_path)
-
-    if docker is None:
-        docker = "python:2.7"
-
-    if len(libraries) == 0:
-        cmd = cmd_tesseract
-    else:
-        cmd = cmd_install_reqs + " && " + cmd_tesseract
-
-    task = tes.Task(
-        name="tesseract remote execution",
-        inputs=[
-            tes.TaskParameter(
-                name="tesseract runner script",
-                path=runner_path,
-                type="FILE",
-                contents=open(RUNNER, "r").read()
-            ),
-            tes.TaskParameter(
-                name="pickled runner",
-                url=input_cp_url,
-                path=input_cp_path,
-                type="FILE"
-            )
-        ],
-        outputs=[
-            tes.TaskParameter(
-                name="pickled result",
-                url=output_cp_url,
-                path="/tmp/tesseract_result.pickle",
-                type="FILE"
-            )
-        ],
-        resources=tes.Resources(
-            cpu_cores=cpu_cores,
-            ram_gb=ram_gb,
-            size_gb=disk_gb
-        ),
-        executors=[
-            tes.Executor(
-                image_name=docker,
-                cmd=["sh", "-c", cmd],
-                stdout="/tmp/stdout",
-                stderr="/tmp/stderr"
-            )
-        ]
-    )
-
-    for v in input_files:
-        task.inputs.append(
-            tes.TaskParameter(
-                url=v.url,
-                path=v.path,
-                type="FILE"
-            )
-        )
-
-    return task
 
 
 def makedirs(path, exists_ok=True):
