@@ -15,11 +15,11 @@ from tesseract.utils import (makedirs, process_url, lookup_provider,
 @attrs
 class FileStore(object):
     bucket = attrib(convert=process_url)
-    key = attrib(default="", validator=instance_of(str))
-    secret = attrib(default="", validator=instance_of(str))
+    key = attrib(default=None, validator=optional(instance_of(str)))
+    secret = attrib(default=None, validator=optional(instance_of(str)))
     secure = attrib(default=True, validator=instance_of(bool))
-    host = attrib(init=None, validator=optional(instance_of(str)))
-    port = attrib(init=None, validator=optional(instance_of(int)))
+    host = attrib(default=None, validator=optional(instance_of(str)))
+    port = attrib(default=None, validator=optional(instance_of(int)))
     api_version = attrib(default=None, validator=optional(instance_of(str)))
     region = attrib(default=None, validator=optional(instance_of(str)))
     provider = attrib(init=False)
@@ -47,12 +47,18 @@ class FileStore(object):
     def __attrs_post_init__(self):
         u = urlparse(self.bucket)
         self.scheme = u.scheme
-        if self.region is None:
-            self.region = lookup_region(self.scheme)
-        self.provider = get_driver(lookup_provider(self.scheme, self.region))
-        if self.provider is not None:
+
+        if self.scheme != "file":
+            if self.region is None:
+                self.region = lookup_region(self.scheme)
+
+            self.provider = get_driver(
+                lookup_provider(self.scheme, self.region)
+            )
+
             if self.key is None and self.secret is None:
                 self.key, self.secret = lookup_credentials(self.scheme)
+
             self.driver = self.provider(
                 key=self.key,
                 secret=self.secret,
@@ -62,6 +68,7 @@ class FileStore(object):
                 api_version=self.api_version,
                 region=self.region
             )
+
         self.key = None
         self.secret = None
         # self._create_store()

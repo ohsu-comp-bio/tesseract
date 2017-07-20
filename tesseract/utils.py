@@ -64,7 +64,7 @@ def lookup_credentials(scheme):
     key = None
     secret = None
     try:
-        with open(lookup[scheme], "r") as fh:
+        with open(os.path.expanduser(lookup[scheme]), "r") as fh:
             content = fh.read()
             if scheme == "gs":
                 cred = json.loads(content)
@@ -81,8 +81,7 @@ def lookup_credentials(scheme):
                 pass
     except:
         raise RuntimeError(
-            "%s credentials could not be set automatically, \
-            please provide your key and secret" % (scheme)
+            "%s credentials could not be set automatically, please provide your key and secret" % (scheme)
         )
     return key, secret
 
@@ -96,7 +95,7 @@ def lookup_region(scheme):
 
     region = None
     try:
-        with open(lookup[scheme], "r") as fh:
+        with open(os.path.expanduser(lookup[scheme]), "r") as fh:
             content = fh.read()
             if scheme == "s3":
                 region = re.findall(
@@ -106,7 +105,6 @@ def lookup_region(scheme):
                 pass
     except:
         raise RuntimeError(
-            "%s region could not be set automatically, \
-            please provide the region to use for your bucket" % (scheme)
+            "%s region could not be set automatically, please provide the region to use for your bucket" % (scheme)
         )
     return region
