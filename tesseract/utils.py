@@ -25,12 +25,12 @@ def makedirs(path, exists_ok=True):
 def process_url(value):
     u = urlparse(value)
     if u.scheme == "":
-        return "file://" + os.path.abspath(value)
+        url = "file://" + os.path.abspath(value)
     elif u.scheme == "file" and u.netloc != "":
-        p = os.path.abspath(os.path.join(u.netloc, u.path))
-        return "file://" + p
+        url = "file://" + os.path.abspath(os.path.join(u.netloc, u.path))
     else:
-        return value
+        url = value
+    return url
 
 
 def lookup_provider(scheme, region):
@@ -51,18 +51,25 @@ def lookup_provider(scheme, region):
 
     if scheme in ["gs", "swift"]:
         region = "*"
-    return lookup[scheme][region]
+
+    try:
+        provider = lookup[scheme][region]
+    except:
+        raise RuntimeError(
+            "%s provider for region %s could not be found" % (scheme, region)
+        )
+    return provider
 
 
 def lookup_credentials(scheme):
     lookup = {
         "gs": "~/.config/gcloud/application_default_credentials.json",
         "s3": "~/.aws/credentials",
-        "swift": None
     }
 
     key = None
     secret = None
+
     try:
         with open(os.path.expanduser(lookup[scheme]), "r") as fh:
             content = fh.read()
@@ -88,16 +95,17 @@ def lookup_credentials(scheme):
 
 def lookup_region(scheme):
     lookup = {
-        "gs": None,
         "s3": "~/.aws/config",
-        "swift": None
     }
 
     region = None
+    if scheme not in lookup:
+        return region
+
     try:
         with open(os.path.expanduser(lookup[scheme]), "r") as fh:
-            content = fh.read()
             if scheme == "s3":
+                content = fh.read()
                 region = re.findall(
                     '(region\ =\ )(.*)\n?', content
                 )[0][1]

@@ -1,6 +1,9 @@
 from __future__ import absolute_import, print_function
 
 import os
+import re
+import shutil
+import tempfile
 import uuid
 
 from attr import attrs, attrib
@@ -14,7 +17,7 @@ from tesseract.utils import (makedirs, process_url, lookup_provider,
 
 @attrs
 class FileStore(object):
-    bucket = attrib(convert=process_url)
+    filestore_url = attrib(convert=process_url)
     key = attrib(default=None, validator=optional(instance_of(str)))
     secret = attrib(default=None, validator=optional(instance_of(str)))
     secure = attrib(default=True, validator=instance_of(bool))
@@ -25,14 +28,12 @@ class FileStore(object):
     provider = attrib(init=False)
     driver = attrib(init=False)
     scheme = attrib(init=False, validator=instance_of(str))
+    __bucket = attrib(init=False, validator=instance_of(str))
+    __path = attrib(init=False, validator=instance_of(str))
     supported = ["s3", "gs", "file"]
 
-    @bucket.validator
-    def __validate_bucket(self, attribute, value):
-        if not value.endswith("/"):
-            raise ValueError(
-                "bucket name must end with '/'"
-            )
+    @filestore_url.validator
+    def __validate_filestore_url(self, attribute, value):
         u = urlparse(value)
         if u.scheme == "file" and u.netloc != "":
             raise ValueError(
@@ -42,11 +43,12 @@ class FileStore(object):
             raise ValueError(
                 "Unsupported scheme - must be one of %s" % (self.supported)
             )
-        # self._raise_if_exists(u)
 
     def __attrs_post_init__(self):
-        u = urlparse(self.bucket)
+        u = urlparse(self.filestore_url)
         self.scheme = u.scheme
+        self.__bucket = u.netloc
+        self.__path = re.sub("/$", "", u.path)
 
         if self.scheme != "file":
             if self.region is None:
@@ -71,36 +73,28 @@ class FileStore(object):
 
         self.key = None
         self.secret = None
-        # self._create_store()
 
-    @staticmethod
-    def _raise_if_exists(u):
-        if u.scheme == "file":
-            path = u.path
-        else:
-            raise NotImplementedError(
-                "%s scheme is not supported" % (u.scheme)
-            )
+        self._create_store()
 
-        if os.path.exists(path):
-            raise ValueError(
-                "FileStore already exists: %s" % (path)
-            )
-        return
-
-    def _create_store(self):
+    def __create_store(self):
         if self.scheme == "file":
-            path = urlparse(self.bucket).path
-            makedirs(path, exists_ok=False)
-        elif self.scheme == "s3":
-            self.driver.create_container(self.bucket)
+            makedirs(self.__path, exists_ok=True)
         else:
-            raise NotImplementedError(
-                "%s scheme is not supported" % (self.scheme)
-            )
+            try:
+                self.driver.get_container(self.__bucket)
+            except:
+                self.driver.create_container(self.__bucket)
         return
 
-    def upload(self, path=None, name=None, contents=None):
+    def __delete_bucket(self):
+        if self.scheme == "file":
+            shutil.rmtree(self.__bucket)
+        else:
+            self.driver.delete_container(self.__bucket)
+        return
+
+    def upload(self, path=None, name=None, contents=None,
+               overwrite_existing=False):
         if path is not None and contents is not None:
             raise RuntimeError("Cannot provide both local path and contents")
         if path is None and contents is None:
@@ -112,26 +106,41 @@ class FileStore(object):
             else:
                 name = str("tmp" + uuid.uuid4().hex)
 
-        url = os.path.join(self.bucket, name)
+        if path is not None:
+            contents = open(path, "r").read()
+
+        url = os.path.join(self.__path, name)
 
         if self.scheme == "file":
-            if path is not None:
-                contents = open(path, "r").read()
-            with open(urlparse(url).path, "w") as fh:
+            with open(url, "w") as fh:
                 fh.write(contents)
         else:
-            raise NotImplementedError(
-                "%s scheme is not supported" % (self.scheme)
+            tmpf = tempfile.NamedTemporaryFile(delete=False)
+            tmpf.write(contents)
+            tmpf.close()
+            self.driver.upload_object(
+                file_path=path,
+                container=self.driver.get_container(self.__bucket),
+                object_name=url
             )
+            os.remove(tmpf.name)
 
         return url
 
-    def download(self, url):
-        u = urlparse(url)
-        if u.scheme == "file":
-            path = u.path
-        else:
-            raise NotImplementedError(
-                "%s scheme is not supported" % (self.scheme)
+    def download(self, url, destination_path, overwrite_existing=False):
+        if os.path.exists(destination_path) and not overwrite_existing:
+            raise IOError(
+                "destination_path exists, and overwrite_existing = False"
             )
-        return path
+        u = urlparse(url)
+        source = u.path
+        if u.scheme == "file":
+            shutil.copyFile(source, destination_path)
+        else:
+            obj = self.driver.get_object(self.__bucket, source)
+            self.driver.download_object(
+                obj,
+                destination_path,
+                overwrite_existing
+            )
+        return destination_path

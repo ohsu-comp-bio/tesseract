@@ -32,6 +32,7 @@ class Tesseract(object):
     libraries = attrib(
         default=["cloudpickle"], validator=tes.models.list_of(str)
     )
+    __id = attrib(init=False, default=None)
 
     @tes_url.validator
     def __validate_tes_url(self, attribute, value):
@@ -41,6 +42,11 @@ class Tesseract(object):
 
     def __attrs_post_init__(self):
         self.__tes_client = tes.HTTPClient(self.tes_url)
+
+    def __get_id(self):
+        if self.__id is None:
+            self.__id = "tesseract_%s" % (uuid.uuid4().hex)
+        return self.__id
 
     def with_resources(self, cpu_cores=None, ram_gb=None, disk_gb=None,
                        docker=None, libraries=[]):
@@ -52,7 +58,7 @@ class Tesseract(object):
         l = libraries or self.libraries
         return evolve(
             self, cpu_cores=c, ram_gb=r, disk_gb=d,
-            docker=i, libraries=l
+            docker=i, libraries=l, __id=None
         )
 
     def with_input(self, url, path):
@@ -82,14 +88,15 @@ class Tesseract(object):
             raise ValueError(
                 "output paths must start with './'"
             )
+        run_id = self._get_id()
         self.output_files.append(
             tes.TaskParameter(
                 path=os.path.join(
                     "file:///tmp/tesseract/outputs", path.strip("./")
                 ),
-                url=urlparse(
-                    self.file_store.url + "/" + path.strip("./")
-                ).geturl(),
+                url=os.path.join(
+                    self.filestore_url, run_id, path.strip("./")
+                ),
                 type="FILE"
             )
         )
@@ -97,13 +104,14 @@ class Tesseract(object):
     def run(self, func, *args, **kwargs):
         if not isinstance(func, Callable):
             raise TypeError("func not an instance of collections.Callable")
-        run_id = uuid.uuid4().hex
+
+        run_id = self._get_id()
 
         # serialize function and arguments
         # upload to object store if necessary
         runner = {"func": func, "args": args, "kwargs": kwargs}
         cp_str = cloudpickle.dumps(runner)
-        input_name = "tesseract_func_%s.pickle" % (run_id)
+        input_name = os.path.join(run_id, "tesseract_func.pickle")
         input_cp_url = self.file_store.upload(name=input_name, contents=cp_str)
         self.input_files.append(
             tes.TaskParameter(
@@ -115,9 +123,9 @@ class Tesseract(object):
         )
 
         # define storage url for pickled output
-        output_name = "%s/tesseract_result_%s.pickle" % (self.file_store.url,
-                                                         run_id)
-        output_cp_url = urlparse(output_name).geturl()
+        output_cp_url = os.path.join(
+            self.file_store.url, run_id, "tesseract_result.pickle"
+        )
         self.outputs.append(
             tes.TaskParameter(
                 name="pickled result",
@@ -128,7 +136,7 @@ class Tesseract(object):
         )
 
         # create task msg and submit
-        task_msg = self._create_task()
+        task_msg = self._create_task_msg()
         id = self.tes_client.create_task(task_msg)
         return Future(
             id,
@@ -137,7 +145,7 @@ class Tesseract(object):
             self.tes_client
         )
 
-    def _create_task(self):
+    def _create_task_msg(self):
         runner = os.path.join(
             os.path.dirname(__file__), "resources", "runner.py"
         )
