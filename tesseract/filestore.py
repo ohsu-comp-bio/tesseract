@@ -12,7 +12,8 @@ from libcloud.storage.providers import get_driver
 from urlparse import urlparse
 
 from tesseract.utils import (makedirs, process_url, lookup_provider,
-                             lookup_credentials, lookup_region)
+                             lookup_credentials, lookup_region,
+                             lookup_project)
 
 
 @attrs
@@ -25,6 +26,7 @@ class FileStore(object):
     port = attrib(default=None, validator=optional(instance_of(int)))
     api_version = attrib(default=None, validator=optional(instance_of(str)))
     region = attrib(default=None, validator=optional(instance_of(str)))
+    project = attrib(default=None, validator=optional(instance_of(str)))
     provider = attrib(init=False)
     driver = attrib(init=False)
     scheme = attrib(init=False, validator=instance_of(str))
@@ -54,6 +56,9 @@ class FileStore(object):
             if self.region is None:
                 self.region = lookup_region(self.scheme)
 
+            if self.project is None:
+                self.project = lookup_project(self.scheme)
+
             self.provider = get_driver(
                 lookup_provider(self.scheme, self.region)
             )
@@ -68,7 +73,8 @@ class FileStore(object):
                 host=self.host,
                 port=self.port,
                 api_version=self.api_version,
-                region=self.region
+                region=self.region,
+                project=self.project
             )
 
         self.key = None

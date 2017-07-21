@@ -99,6 +99,7 @@ def lookup_region(scheme):
     }
 
     region = None
+    # return none if scheme isn't 's3'
     if scheme not in lookup:
         return region
 
@@ -116,3 +117,29 @@ def lookup_region(scheme):
             "%s region could not be set automatically, please provide the region to use for your bucket" % (scheme)
         )
     return region
+
+
+def lookup_project(scheme):
+    lookup = {
+        "gs": "~/.config/gcloud/configurations/config_default",
+    }
+
+    project = None
+    # return none if scheme isn't 'gs'
+    if scheme not in lookup:
+        return project
+
+    try:
+        with open(os.path.expanduser(lookup[scheme]), "r") as fh:
+            if scheme == "gs":
+                content = fh.read()
+                project = re.findall(
+                    '(project\ =\ )(.*)\n?', content
+                )[0][1]
+            else:
+                pass
+    except:
+        raise RuntimeError(
+            "%s project could not be set automatically, please provide the project to use for your bucket" % (scheme)
+        )
+    return project
