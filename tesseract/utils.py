@@ -71,25 +71,33 @@ def lookup_credentials(scheme):
     secret = None
 
     try:
-        with open(os.path.expanduser(lookup[scheme]), "r") as fh:
-            content = fh.read()
-            if scheme == "gs":
-                cred = json.loads(content)
-                key = cred["client_id"]
-                secret = key = cred["client_secret"]
-            elif scheme == "s3":
-                key = re.findall(
-                    '(aws_access_key_id\ =\ )(.*)\n?', content
-                )[0][1]
-                secret = re.findall(
-                    '(aws_secret_access_key\ =\ )(.*)\n?', content
-                )[0][1]
-            else:
-                pass
+        if scheme == "swift":
+            key = os.environ["OS_USERNAME"]
+            secret = os.environ["OS_PASSWORD"]
+            if key is None or secret is None:
+                raise
+
+        elif scheme in lookup:
+            with open(os.path.expanduser(lookup[scheme]), "r") as fh:
+                content = fh.read()
+
+                if scheme == "gs":
+                    cred = json.loads(content)
+                    key = cred["client_id"]
+                    secret = key = cred["client_secret"]
+
+                elif scheme == "s3":
+                    key = re.findall(
+                        '(aws_access_key_id\ =\ )(.*)\n?', content
+                    )[0][1]
+                    secret = re.findall(
+                        '(aws_secret_access_key\ =\ )(.*)\n?', content
+                    )[0][1]
     except:
         raise RuntimeError(
             "%s credentials could not be set automatically, please provide your key and secret" % (scheme)
         )
+
     return key, secret
 
 
@@ -110,8 +118,6 @@ def lookup_region(scheme):
                 region = re.findall(
                     '(region\ =\ )(.*)\n?', content
                 )[0][1]
-            else:
-                pass
     except:
         raise RuntimeError(
             "%s region could not be set automatically, please provide the region to use for your bucket" % (scheme)
@@ -136,8 +142,6 @@ def lookup_project(scheme):
                 project = re.findall(
                     '(project\ =\ )(.*)\n?', content
                 )[0][1]
-            else:
-                pass
     except:
         raise RuntimeError(
             "%s project could not be set automatically, please provide the project to use for your bucket" % (scheme)

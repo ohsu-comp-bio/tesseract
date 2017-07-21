@@ -22,17 +22,17 @@ class FileStore(object):
     key = attrib(default=None, validator=optional(instance_of(str)))
     secret = attrib(default=None, validator=optional(instance_of(str)))
     secure = attrib(default=True, validator=instance_of(bool))
-    host = attrib(default=None, validator=optional(instance_of(str)))
-    port = attrib(default=None, validator=optional(instance_of(int)))
-    api_version = attrib(default=None, validator=optional(instance_of(str)))
     region = attrib(default=None, validator=optional(instance_of(str)))
     project = attrib(default=None, validator=optional(instance_of(str)))
+    ex_force_auth_url = attrib(default=None, validator=optional(instance_of(str)))
+    ex_force_auth_version = attrib(default='2.0_password', validator=optional(instance_of(str)))
+    ex_tenant_name = attrib(default=None, validator=optional(instance_of(str)))
     provider = attrib(init=False)
     driver = attrib(init=False)
     scheme = attrib(init=False, validator=instance_of(str))
     __bucket = attrib(init=False, validator=instance_of(str))
     __path = attrib(init=False, validator=instance_of(str))
-    supported = ["s3", "gs", "file"]
+    supported = ["file", "gs", "s3", "swift"]
 
     @filestore_url.validator
     def __validate_filestore_url(self, attribute, value):
@@ -53,12 +53,6 @@ class FileStore(object):
         self.__path = re.sub("/$", "", u.path)
 
         if self.scheme != "file":
-            if self.region is None:
-                self.region = lookup_region(self.scheme)
-
-            if self.project is None:
-                self.project = lookup_project(self.scheme)
-
             self.provider = get_driver(
                 lookup_provider(self.scheme, self.region)
             )
@@ -66,20 +60,41 @@ class FileStore(object):
             if self.key is None and self.secret is None:
                 self.key, self.secret = lookup_credentials(self.scheme)
 
-            self.driver = self.provider(
-                key=self.key,
-                secret=self.secret,
-                secure=self.secure,
-                host=self.host,
-                port=self.port,
-                api_version=self.api_version,
-                region=self.region,
-                project=self.project
-            )
+            # Openstack Swift
+            if self.scheme == "swift":
+                try:
+                    self.ex_force_auth_url = os.environ['OS_AUTH_URL']
+                    self.ex_tenant_name = os.environ['OS_TENANT_NAME']
+                except:
+                    raise ValueError(
+                        "OS_AUTH_URL and OS_TENANT_NAME were not found"
+                    )
+                self.driver = self.provider(
+                    key=self.key,
+                    secret=self.secret,
+                    ex_force_auth_url=self.ex_force_auth_url,
+                    ex_tenant_name=self.ex_tenant_name,
+                    ex_force_auth_version=self.ex_force_auth_version
+                )
+
+            # Google Storage or Amazon S3
+            else:
+                if self.region is None:
+                    self.region = lookup_region(self.scheme)
+
+                if self.project is None:
+                    self.project = lookup_project(self.scheme)
+
+                self.driver = self.provider(
+                    key=self.key,
+                    secret=self.secret,
+                    secure=self.secure,
+                    region=self.region,
+                    project=self.project
+                )
 
         self.key = None
         self.secret = None
-
         self._create_store()
 
     def __create_store(self):
