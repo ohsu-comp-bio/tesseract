@@ -18,7 +18,7 @@ setup(
     install_requires=[
         "attrs>=17.2.0",
         "cloudpickle>=0.3.1",
-        "py-tes>=0.1.0"
+        "py-tes>=0.1.2"
     ],
     zip_safe=True,
     classifiers=[
