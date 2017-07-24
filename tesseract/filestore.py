@@ -114,6 +114,11 @@ class FileStore(object):
             self.driver.delete_container(self.__bucket)
         return
 
+    def generate_url(self, name):
+        return "%s://%s" % (
+            self.scheme, os.path.join(self.__bucket, self.__path, name)
+        )
+
     def upload(self, path=None, name=None, contents=None,
                overwrite_existing=False):
         if path is not None and contents is not None:
@@ -137,6 +142,7 @@ class FileStore(object):
                 raise OSError(
                     "File exists; to force set overwrite_existing to True"
                 )
+            makedirs(os.path.dirname(url), exists_ok=True)
             with open(url, "w") as fh:
                 fh.write(contents)
         else:

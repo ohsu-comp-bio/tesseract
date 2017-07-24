@@ -11,7 +11,7 @@ install:
 
 script: 
   - flake8 .
-  - python -m nose tests --with-coverage --cover-package tesseract --cover-min-percentage 80
+  - python -m nose tests --with-coverage --cover-package tesseract
 
 after_success:
   - coveralls

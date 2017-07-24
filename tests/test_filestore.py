@@ -33,6 +33,17 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual(self.fs.key, None)
         self.assertEqual(self.fs.secret, None)
 
+    def test_generate_url(self):
+        self.assertEqual(
+            self.fs.generate_url("1/test"),
+            "%s://%s" % (
+                self.fs.scheme,
+                os.path.join(self.fs._FileStore__bucket,
+                             self.fs._FileStore__path,
+                             "1/test")
+            )
+        )
+
     def test_upload(self):
         u = self.fs.upload(
             name="testfile.txt", contents="hello", overwrite_existing=False

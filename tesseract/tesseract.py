@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function
 
 import cloudpickle
 import os
+import tempfile
 import tes
 import uuid
 
@@ -28,7 +29,7 @@ class Tesseract(object):
     disk_gb = attrib(
         default=None, validator=optional(instance_of((int, float)))
     )
-    docker = attrib(default="python:2.7", validator=optional(instance_of(str)))
+    docker = attrib(default="python:2.7", validator=instance_of(str))
     libraries = attrib(
         default=["cloudpickle"], validator=tes.models.list_of(str)
     )
@@ -88,7 +89,7 @@ class Tesseract(object):
             raise ValueError(
                 "output paths must start with './'"
             )
-        run_id = self._get_id()
+        run_id = self.__get_id()
         self.output_files.append(
             tes.TaskParameter(
                 path=os.path.join(
@@ -105,7 +106,7 @@ class Tesseract(object):
         if not isinstance(func, Callable):
             raise TypeError("func not an instance of collections.Callable")
 
-        run_id = self._get_id()
+        run_id = self.__get_id()
 
         # serialize function and arguments
         # upload to object store if necessary
@@ -123,10 +124,10 @@ class Tesseract(object):
         )
 
         # define storage url for pickled output
-        output_cp_url = os.path.join(
-            self.file_store.url, run_id, "tesseract_result.pickle"
+        output_cp_url = self.file_store.generate_url(
+            "%s/tesseract_result.pickle" % (run_id)
         )
-        self.outputs.append(
+        self.output_files.append(
             tes.TaskParameter(
                 name="pickled result",
                 url=output_cp_url,
@@ -137,12 +138,12 @@ class Tesseract(object):
 
         # create task msg and submit
         task_msg = self._create_task_msg()
-        id = self.tes_client.create_task(task_msg)
+        id = self.__tes_client.create_task(task_msg)
         return Future(
             id,
             output_cp_url,
             self.file_store,
-            self.tes_client
+            self.__tes_client
         )
 
     def _create_task_msg(self):
@@ -152,9 +153,6 @@ class Tesseract(object):
 
         cmd_install_reqs = "pip install %s" % (" ".join(self.libraries))
         cmd_tesseract = "python tesseract.py func.pickle"
-
-        if self.docker is None:
-            docker = "python:2.7"
 
         if len(self.libraries) == 0:
             cmd = cmd_tesseract
@@ -179,7 +177,7 @@ class Tesseract(object):
             ),
             executors=[
                 tes.Executor(
-                    image_name=docker,
+                    image_name=self.docker,
                     cmd=["sh", "-c", cmd],
                     stdout="/tmp/tesseract/stdout",
                     stderr="/tmp/tesseract/stderr",
@@ -210,8 +208,11 @@ class Future(object):
         if r.state != "COMPLETE":
             r = self.__client.get_task(self.__id, "FULL")
             raise RuntimeError("remote job failed:\n%s" % (r))
-        path = self.__file_store.download(self.__output_url)
-        return cloudpickle.load(open(path, "rb"))
+
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        tmp.close()
+        self.__file_store.download(self.__output_url, tmp.name, True)
+        return cloudpickle.load(open(tmp.name, "rb"))
 
     def result(self, timeout=None):
         return self.__result.result(timeout=timeout)

@@ -79,7 +79,7 @@ class SimpleServerTest(unittest.TestCase):
             os.mkdir(os.path.join(self.testdir, "test_tmp"))
         self.tmpdir = tempfile.mkdtemp(
             dir=os.path.join(self.testdir, "test_tmp"),
-            prefix="conformance_test_v1.0_"
+            prefix="tmp"
         )
         os.environ['TMPDIR'] = self.tmpdir
 
@@ -105,6 +105,7 @@ class SimpleServerTest(unittest.TestCase):
             "LogLevel": "debug",
             "LogPath": logFile,
             "Worker": {
+                "WorkDir": funnel_work_dir,
                 "Timeout": -1,
                 "StatusPollRate": rate,
                 "LogUpdateRate": rate,
