@@ -5,7 +5,8 @@
 tesseract
 ======
 
-_tesseract_ is a library that enables remote execution of python code. 
+_tesseract_ is a library that enables the remote execution of python code on 
+systems implementing the [GA4GH Task Execution API](https://github.com/ga4gh/task-execution-schemas).
 
 
 ## Quick Start
@@ -34,6 +35,41 @@ future = r.run(say_hello, "!", b="world")
 result = future.result()
 print(result)
 ```
+
+### Object store support
+
+If you provide a swift, s3, or gs bucket url to your `FileStore` _tesseract__ 
+will attempt to automatically detect your credentials for each of these systems.
+
+To setup your environment for this run the following commands:
+
+* Google Storage - `gcloud auth application-default login`
+    * [Guide](https://cloud.google.com/sdk/gcloud/reference/auth/application-default/)
+* Amazon S3 - `aws configure`
+    * [Guide](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
+* Swift - `source openrc.sh`
+    * [Guide](https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/5/html/End_User_Guide/cli_openrc.html)
+
+### Input files
+
+If your function expects input files to be available at a given path then add:
+
+```
+r.with_input("s3://your-bucket/path/to/yourfile.txt", "/home/ubuntu/yourfile.txt")
+```
+
+The first argument specifies where the file is available, the second specifies where your 
+function will expect to find the file. 
+
+### Output files
+
+If your function generates files during its run you can specify these files 
+as shown below and _tesseract_ will handle getting them uploaded to the designated bucket. 
+
+```
+r.with_input("./relative/path/to/outputfile.txt")
+```
+
 
 ## Resources
 

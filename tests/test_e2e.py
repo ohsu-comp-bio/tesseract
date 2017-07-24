@@ -7,7 +7,8 @@ from tesseract.tesseract import Tesseract
 from funnel_test_util import SimpleServerTest
 
 
-class TestTesseract(SimpleServerTest):
+class TestTesseractE2E(SimpleServerTest):
+
     testdir = os.path.dirname(
         os.path.realpath(__file__)
     )

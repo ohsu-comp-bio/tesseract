@@ -6,22 +6,28 @@ import tempfile
 import tes
 import uuid
 
-from attr import attrs, attrib, evolve
+from attr import attrs, attrib, evolve, Factory
 from attr.validators import instance_of, optional
 from collections import Callable
 from concurrent.futures import ThreadPoolExecutor
-from urlparse import urlparse
+from requests.utils import urlparse
 
 from tesseract.filestore import FileStore
+from tesseract.utils import process_url
 
 
 @attrs
 class Tesseract(object):
     file_store = attrib(validator=instance_of(FileStore))
-    tes_url = attrib(default="localhost:8000")
+    tes_url = attrib(default="http://localhost:8000")
     __tes_client = attrib(init=False)
-    input_files = attrib(default=[], validator=tes.models.list_of(str))
-    output_files = attrib(default=[], validator=tes.models.list_of(str))
+    __id = attrib(init=False)
+    input_files = attrib(
+        default=Factory(list), validator=tes.models.list_of(tes.TaskParameter)
+    )
+    output_files = attrib(
+        default=Factory(list), validator=tes.models.list_of(tes.TaskParameter)
+    )
     cpu_cores = attrib(default=None, validator=optional(instance_of(int)))
     ram_gb = attrib(
         default=None, validator=optional(instance_of((int, float)))
@@ -31,9 +37,12 @@ class Tesseract(object):
     )
     docker = attrib(default="python:2.7", validator=instance_of(str))
     libraries = attrib(
-        default=["cloudpickle"], validator=tes.models.list_of(str)
+        validator=tes.models.list_of(str)
     )
-    __id = attrib(init=False, default=None)
+
+    @libraries.default
+    def __default_libraries(self):
+        return ["cloudpickle"]
 
     @tes_url.validator
     def __validate_tes_url(self, attribute, value):
@@ -43,6 +52,7 @@ class Tesseract(object):
 
     def __attrs_post_init__(self):
         self.__tes_client = tes.HTTPClient(self.tes_url)
+        self.__id = None
 
     def __get_id(self):
         if self.__id is None:
@@ -57,15 +67,17 @@ class Tesseract(object):
         d = disk_gb or self.disk_gb
         i = docker or self.docker
         l = libraries or self.libraries
-        return evolve(
-            self, cpu_cores=c, ram_gb=r, disk_gb=d,
-            docker=i, libraries=l, __id=None
+        return Tesseract(
+            self.file_store, self.tes_url, cpu_cores=c, ram_gb=r, disk_gb=d,
+            docker=i, libraries=l
         )
 
     def with_input(self, url, path):
-        u = urlparse(url)
-        if u.scheme == "":
-            u = urlparse("file://" + os.path.abspath(path))
+        u = urlparse(process_url(url))
+        if u.scheme not in self.file_store.supported:
+            raise ValueError(
+                "Unsupported scheme - must be one of %s" % (self.file_store.supported)
+            )
         if u.scheme == "file" and self.file_store.scheme != "file":
             raise ValueError("please upload your input file to the file store")
 
@@ -77,11 +89,17 @@ class Tesseract(object):
             path = os.path.join(
                 "file:///tmp/tesseract/", path.strip("./")
             )
+        elif not os.path.isabs(path):
+            raise ValueError(
+                "runtime path must be an abosolute path or start with './'"
+            )
 
-        self.input_files = tes.TaskParameter(
-            path=path,
-            url=url,
-            type="FILE"
+        self.input_files.append(
+            tes.TaskParameter(
+                path=path,
+                url=url,
+                type="FILE"
+            )
         )
 
     def with_output(self, path):

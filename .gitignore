@@ -18,3 +18,4 @@ eggs/
 
 test_tmp
 funnel-work-dir
+.coverage
