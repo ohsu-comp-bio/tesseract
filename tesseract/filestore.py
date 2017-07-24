@@ -9,7 +9,7 @@ import uuid
 from attr import attrs, attrib
 from attr.validators import instance_of, optional
 from libcloud.storage.providers import get_driver
-from urlparse import urlparse
+from requests.utils import urlparse
 
 from tesseract.utils import (makedirs, process_url, lookup_provider,
                              lookup_credentials, lookup_region,
@@ -95,7 +95,7 @@ class FileStore(object):
 
         self.key = None
         self.secret = None
-        self._create_store()
+        self.__create_store()
 
     def __create_store(self):
         if self.scheme == "file":
@@ -117,9 +117,9 @@ class FileStore(object):
     def upload(self, path=None, name=None, contents=None,
                overwrite_existing=False):
         if path is not None and contents is not None:
-            raise RuntimeError("Cannot provide both local path and contents")
+            raise ValueError("Cannot provide both local path and contents")
         if path is None and contents is None:
-            raise RuntimeError("Provide either local path or contents")
+            raise ValueError("Provide either local path or contents")
 
         if name is None:
             if path is None:
@@ -133,6 +133,10 @@ class FileStore(object):
         url = os.path.join(self.__path, name)
 
         if self.scheme == "file":
+            if os.path.exists(url) and not overwrite_existing:
+                raise OSError(
+                    "File exists; to force set overwrite_existing to True"
+                )
             with open(url, "w") as fh:
                 fh.write(contents)
         else:
@@ -150,13 +154,17 @@ class FileStore(object):
 
     def download(self, url, destination_path, overwrite_existing=False):
         if os.path.exists(destination_path) and not overwrite_existing:
-            raise IOError(
+            raise OSError(
                 "destination_path exists, and overwrite_existing = False"
             )
         u = urlparse(url)
+        if u.scheme not in self.supported:
+            raise ValueError(
+                "Unsupported scheme - must be one of %s" % (self.supported)
+            )
         source = u.path
         if u.scheme == "file":
-            shutil.copyFile(source, destination_path)
+            shutil.copyfile(source, destination_path)
         else:
             obj = self.driver.get_object(self.__bucket, source)
             self.driver.download_object(
