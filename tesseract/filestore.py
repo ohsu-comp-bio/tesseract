@@ -24,8 +24,12 @@ class FileStore(object):
     secure = attrib(default=True, validator=instance_of(bool))
     region = attrib(default=None, validator=optional(instance_of(str)))
     project = attrib(default=None, validator=optional(instance_of(str)))
-    ex_force_auth_url = attrib(default=None, validator=optional(instance_of(str)))
-    ex_force_auth_version = attrib(default='2.0_password', validator=optional(instance_of(str)))
+    ex_force_auth_url = attrib(
+        default=None, validator=optional(instance_of(str))
+    )
+    ex_force_auth_version = attrib(
+        default='2.0_password', validator=optional(instance_of(str))
+    )
     ex_tenant_name = attrib(default=None, validator=optional(instance_of(str)))
     provider = attrib(init=False)
     driver = attrib(init=False)

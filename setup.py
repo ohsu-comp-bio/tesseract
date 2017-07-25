@@ -19,6 +19,7 @@ setup(
         "apache_libcloud>=2.1.0",
         "attrs>=17.2.0",
         "cloudpickle>=0.3.1",
+        "futures>=3.1.1",
         "py-tes>=0.1.2",
         "requests>=2.18.1"
     ],

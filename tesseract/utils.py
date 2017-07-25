@@ -95,7 +95,8 @@ def lookup_credentials(scheme):
                     )[0][1]
     except:
         raise RuntimeError(
-            "%s credentials could not be set automatically, please provide your key and secret" % (scheme)
+            "%s credentials could not be set automatically, " % (scheme) +
+            "please provide your key and secret"
         )
 
     return key, secret
@@ -120,7 +121,8 @@ def lookup_region(scheme):
                 )[0][1]
     except:
         raise RuntimeError(
-            "%s region could not be set automatically, please provide the region to use for your bucket" % (scheme)
+            "%s region could not be set automatically, " % (scheme) +
+            "please provide the region to use for your bucket"
         )
     return region
 
@@ -144,6 +146,7 @@ def lookup_project(scheme):
                 )[0][1]
     except:
         raise RuntimeError(
-            "%s project could not be set automatically, please provide the project to use for your bucket" % (scheme)
+            "%s project could not be set automatically, " % (scheme) +
+            "please provide the project to use for your bucket"
         )
     return project

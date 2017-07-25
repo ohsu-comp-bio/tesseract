@@ -1,6 +1,11 @@
+sudo: required
 language: python
 python:
-  - "2.7"
+  - 2.7
+services:
+  - docker
+os:
+  - linux
 
 install:
   - pip install pip --upgrade
@@ -9,12 +14,23 @@ install:
   - pip install -r requirements.txt
   - python setup.py install
 
+before_script:
+  - wget https://github.com/ohsu-comp-bio/funnel/releases/download/0.2.0/funnel-linux-amd64.tar.gz -O /tmp/funnel-linux-amd64.tar.gz
+  - tar -zxvf /tmp/funnel-linux-amd64.tar.gz -C /tmp
+  - mv /tmp/funnel-linux-amd64 /tmp/funnel
+  - export PATH=$PATH:/tmp
+  - docker pull python:2.7
+
 script: 
   - flake8 .
   - python -m nose tests --with-coverage --cover-package tesseract
 
 after_success:
   - coveralls
+
+after_failure:
+  - echo "FUNNEL LOGS ----------"
+  - cat ./tests/test_tmp/tmp*/funnel_log.txt
 
 notifications:
   email: false
