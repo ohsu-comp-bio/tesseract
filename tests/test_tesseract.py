@@ -35,8 +35,15 @@ class TestTesseract(unittest.TestCase):
         self.assertEqual(self.runner.docker, "python:2.7")
         self.assertEqual(self.runner.libraries, ["cloudpickle"])
 
+    def test_clone(self):
+        r = self.runner.clone()
+        self.assertEqual(r, self.runner)
+        r.cpu_cores = 1
+        self.assertNotEqual(r, self.runner)
+
     def test_with_resources(self):
-        r = self.runner.with_resources(cpu_cores=2, ram_gb=4)
+        r = self.runner.clone()
+        r.with_resources(cpu_cores=2, ram_gb=4)
         self.assertEqual(r.input_files, [])
         self.assertEqual(r.output_files, [])
         self.assertEqual(r.cpu_cores, 2)
@@ -46,16 +53,24 @@ class TestTesseract(unittest.TestCase):
         self.assertEqual(r.libraries, ["cloudpickle"])
 
     def test_with_input(self):
-        r = self.runner.with_resources()
-        r.with_input("file://tmp/input", "/mnt/input")
+        r = self.runner.clone()
+        r.with_input("file:///tmp/input", "/mnt/input")
+        r.with_input("file:///tmp/input2", "./input2")
+        expected = [
+            tes.TaskParameter(
+                url="file:///tmp/input",
+                path="/mnt/input"
+            ),
+            tes.TaskParameter(
+                url="file:///tmp/input2",
+                path="/tmp/tesseract/input2"
+            )
+        ]
+        print("ACTUAL", r.input_files)
+        print("EXPECTED", expected)
         self.assertEqual(
             r.input_files,
-            [
-                tes.TaskParameter(
-                    url="file://tmp/input",
-                    path="/mnt/input"
-                )
-            ]
+            expected
         )
 
         with self.assertRaises(ValueError):
@@ -63,3 +78,30 @@ class TestTesseract(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.runner.with_input("file://tmp/input", "../input")
+
+    def test_with_output(self):
+        r = self.runner.clone()
+        r._Tesseract__id = "testid"
+        r.with_output("./output.txt")
+        r.with_output("/mnt/output.txt")
+        expected = [
+            tes.TaskParameter(
+                path="/tmp/tesseract/output.txt",
+                url=r.file_store.generate_url("testid/output.txt"),
+                type="FILE"
+            ),
+            tes.TaskParameter(
+                path="/mnt/output.txt",
+                url=r.file_store.generate_url("testid/mnt/output.txt"),
+                type="FILE"
+            )
+        ]
+        print("ACTUAL", r.output_files)
+        print("EXPECTED", expected)
+        self.assertEqual(
+            r.output_files,
+            expected
+        )
+
+        with self.assertRaises(ValueError):
+            self.runner.with_output("../output")

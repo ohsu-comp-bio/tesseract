@@ -44,18 +44,35 @@ class TestFileStore(unittest.TestCase):
             )
         )
 
+    def test_exists(self):
+        tmpd = os.path.join(self.fs_path, "testdir")
+        os.mkdir(tmpd)
+        tmpf = tempfile.NamedTemporaryFile(dir=tmpd, delete=False)
+        tmpf.close()
+        self.assertTrue(
+            self.fs.exists(os.path.basename(tmpf.name))
+        )
+        self.assertTrue(
+            self.fs.exists(os.path.basename(tmpd))
+        )
+        self.assertFalse(
+            self.fs.exists("doesnotexist")
+        )
+        with self.assertRaises(ValueError):
+            self.fs.exists(tmpd)
+
     def test_upload(self):
         u = self.fs.upload(
             name="testfile.txt", contents="hello", overwrite_existing=False
         )
         self.assertTrue(os.path.exists(u))
-        self.assertEqual(open(u, 'r').read(), "hello")
+        self.assertEqual(open(u, "r").read(), "hello")
 
         # overwrite existing
         u = self.fs.upload(
             name="testfile.txt", contents="world", overwrite_existing=True
         )
-        self.assertEqual(open(u, 'r').read(), "world")
+        self.assertEqual(open(u, "r").read(), "world")
 
         # no overwrite
         with self.assertRaises(OSError):

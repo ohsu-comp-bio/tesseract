@@ -27,13 +27,19 @@ def say_hello(a, b):
 
 fs = FileStore("./test_store/")
 r = Tesseract(fs, "http://localhost:8000")
-r = r.with_resources(
+r.with_resources(
     cpu_cores=1, ram_gb=4, disk_gb=None, 
     docker="python:2.7", libraries=["cloudpickle"]
 )
-future = r.run(say_hello, "!", b="world")
+
+future = r.run(say_hello, "world", b="!")
 result = future.result()
 print(result)
+
+r2 = r.clone().with_resources(cpu_cores=4)
+f2 = r2.run(say_hello, "more", b="cpus!")
+r2 = f2.result()
+print(r2)
 ```
 
 ### Object store support
@@ -67,7 +73,7 @@ If your function generates files during its run you can specify these files
 as shown below and _tesseract_ will handle getting them uploaded to the designated bucket. 
 
 ```
-r.with_input("./relative/path/to/outputfile.txt")
+r.with_output("./relative/path/to/outputfile.txt")
 ```
 
 

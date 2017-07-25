@@ -1,12 +1,14 @@
 from __future__ import absolute_import, print_function
 
 import cloudpickle
+import copy
 import os
+import re
 import tempfile
 import tes
 import uuid
 
-from attr import attrs, attrib, evolve, Factory
+from attr import attrs, attrib, Factory
 from attr.validators import instance_of, optional
 from collections import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -55,66 +57,73 @@ class Tesseract(object):
         self.__id = None
 
     def __get_id(self):
-        if self.__id is None:
+        if self.__id is None or self.file_store.exists(self.__id):
             self.__id = "tesseract_%s" % (uuid.uuid4().hex)
         return self.__id
+
+    def clone(self):
+        return copy.deepcopy(self)
 
     def with_resources(self, cpu_cores=None, ram_gb=None, disk_gb=None,
                        docker=None, libraries=[]):
         # only override if set
-        c = cpu_cores or self.cpu_cores
-        r = ram_gb or self.ram_gb
-        d = disk_gb or self.disk_gb
-        i = docker or self.docker
-        l = libraries or self.libraries
-        return Tesseract(
-            self.file_store, self.tes_url, cpu_cores=c, ram_gb=r, disk_gb=d,
-            docker=i, libraries=l
-        )
+        self.cpu_cores = cpu_cores or self.cpu_cores
+        self.ram_gb = ram_gb or self.ram_gb
+        self.disk_gb = disk_gb or self.disk_gb
+        self.docker = docker or self.docker
+        self.libraries = libraries or self.libraries
 
     def with_input(self, url, path):
         u = urlparse(process_url(url))
         if u.scheme not in self.file_store.supported:
             raise ValueError(
-                "Unsupported scheme - must be one of %s" % (self.file_store.supported)
+                "Unsupported scheme - must be one of %s" %
+                (self.file_store.supported)
             )
         if u.scheme == "file" and self.file_store.scheme != "file":
             raise ValueError("please upload your input file to the file store")
 
         u = urlparse(path)
         if u.scheme not in ["file", ""]:
-            raise ValueError("runtime path must be a local path")
+            raise ValueError("runtime path must be defined as a local path")
+        if u.scheme == "file":
+            path = os.path.join(u.netloc, u.path)
 
         if path.startswith("./"):
-            path = os.path.join(
-                "file:///tmp/tesseract/", path.strip("./")
-            )
+            pass
         elif not os.path.isabs(path):
             raise ValueError(
-                "runtime path must be an abosolute path or start with './'"
+                "runtime path must be an absolute path or start with './'"
             )
 
         self.input_files.append(
             tes.TaskParameter(
-                path=path,
+                path=os.path.join("/tmp/tesseract", re.sub("^./", "", path)),
                 url=url,
                 type="FILE"
             )
         )
 
     def with_output(self, path):
-        if not path.startswith("./"):
+        u = urlparse(path)
+        if u.scheme not in ["file", ""]:
+            raise ValueError("runtime path must be defined as a local path")
+        if u.scheme == "file":
+            path = os.path.join(u.netloc, u.path)
+
+        if path.startswith("./"):
+            pass
+        elif not os.path.isabs(path):
             raise ValueError(
-                "output paths must start with './'"
+                "runtime path must be an absolute path or start with './'"
             )
+
         run_id = self.__get_id()
         self.output_files.append(
             tes.TaskParameter(
-                path=os.path.join(
-                    "file:///tmp/tesseract/outputs", path.strip("./")
-                ),
-                url=os.path.join(
-                    self.filestore_url, run_id, path.strip("./")
+                path=os.path.join("/tmp/tesseract", re.sub("^./", "", path)),
+                url=self.file_store.generate_url(
+                    os.path.join(run_id, re.sub("^./|^/", "", path))
                 ),
                 type="FILE"
             )
@@ -132,30 +141,14 @@ class Tesseract(object):
         cp_str = cloudpickle.dumps(runner)
         input_name = os.path.join(run_id, "tesseract_func.pickle")
         input_cp_url = self.file_store.upload(name=input_name, contents=cp_str)
-        self.input_files.append(
-            tes.TaskParameter(
-                name="pickled function",
-                url=input_cp_url,
-                path="/tmp/tesseract/func.pickle",
-                type="FILE"
-            )
-        )
 
         # define storage url for pickled output
         output_cp_url = self.file_store.generate_url(
             "%s/tesseract_result.pickle" % (run_id)
         )
-        self.output_files.append(
-            tes.TaskParameter(
-                name="pickled result",
-                url=output_cp_url,
-                path="/tmp/tesseract/result.pickle",
-                type="FILE"
-            )
-        )
 
         # create task msg and submit
-        task_msg = self._create_task_msg()
+        task_msg = self._create_task_msg(input_cp_url, output_cp_url)
         id = self.__tes_client.create_task(task_msg)
         return Future(
             id,
@@ -164,7 +157,7 @@ class Tesseract(object):
             self.__tes_client
         )
 
-    def _create_task_msg(self):
+    def _create_task_msg(self, input_cp_url, output_cp_url):
         runner = os.path.join(
             os.path.dirname(__file__), "resources", "runner.py"
         )
@@ -179,15 +172,28 @@ class Tesseract(object):
 
         task = tes.Task(
             name="tesseract remote execution",
-            inputs=[
+            inputs=self.input_files + [
+                tes.TaskParameter(
+                    name="pickled function",
+                    url=input_cp_url,
+                    path="/tmp/tesseract/func.pickle",
+                    type="FILE"
+                ),
                 tes.TaskParameter(
                     name="tesseract runner script",
                     path="/tmp/tesseract/tesseract.py",
                     type="FILE",
                     contents=open(runner, "r").read()
                 )
-            ] + self.input_files,
-            outputs=self.output_files,
+            ],
+            outputs=self.output_files + [
+                tes.TaskParameter(
+                    name="pickled result",
+                    url=output_cp_url,
+                    path="/tmp/tesseract/result.pickle",
+                    type="FILE"
+                )
+            ],
             resources=tes.Resources(
                 cpu_cores=self.cpu_cores,
                 ram_gb=self.ram_gb,

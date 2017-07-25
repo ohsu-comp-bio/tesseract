@@ -119,6 +119,25 @@ class FileStore(object):
             self.scheme, os.path.join(self.__bucket, self.__path, name)
         )
 
+    def exists(self, name):
+        if os.path.basename(name) != name:
+            raise ValueError("must pass only the name of a file or directory")
+        found = False
+
+        if self.scheme == "file":
+            for root, dirnames, filenames in os.walk(self.__path):
+                if name in dirnames + filenames + [os.path.basename(root)]:
+                    found = True
+        else:
+            objs = self.driver.list_container_objects(
+                self.driver.get_container(self.__bucket)
+            )
+            for o in objs:
+                if name in o.name:
+                    found = True
+
+        return found
+
     def upload(self, path=None, name=None, contents=None,
                overwrite_existing=False):
         if path is not None and contents is not None:
