@@ -1,4 +1,4 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, unicode_literals
 
 import errno
 import json
@@ -6,7 +6,9 @@ import os
 import re
 
 from libcloud.storage.types import Provider
-from urlparse import urlparse
+from io import open
+from tes.models import strconv
+from requests.utils import urlparse
 
 
 def makedirs(path, exists_ok=True):
@@ -23,6 +25,7 @@ def makedirs(path, exists_ok=True):
 
 
 def process_url(value):
+    value = strconv(value)
     u = urlparse(value)
     if u.scheme == "":
         url = "file://" + os.path.abspath(value)
@@ -78,21 +81,21 @@ def lookup_credentials(scheme):
                 raise
 
         elif scheme in lookup:
-            with open(os.path.expanduser(lookup[scheme]), "r") as fh:
-                content = fh.read()
+            fh = open(os.path.expanduser(lookup[scheme]), "r", encoding="utf-8")
+            content = fh.read()
+            fh.close()
+            if scheme == "gs":
+                cred = json.loads(content)
+                key = cred["client_id"]
+                secret = key = cred["client_secret"]
 
-                if scheme == "gs":
-                    cred = json.loads(content)
-                    key = cred["client_id"]
-                    secret = key = cred["client_secret"]
-
-                elif scheme == "s3":
-                    key = re.findall(
-                        '(aws_access_key_id\ =\ )(.*)\n?', content
-                    )[0][1]
-                    secret = re.findall(
-                        '(aws_secret_access_key\ =\ )(.*)\n?', content
-                    )[0][1]
+            elif scheme == "s3":
+                key = re.findall(
+                    '(aws_access_key_id\ =\ )(.*)\n?', content
+                )[0][1]
+                secret = re.findall(
+                    '(aws_secret_access_key\ =\ )(.*)\n?', content
+                )[0][1]
     except:
         raise RuntimeError(
             "%s credentials could not be set automatically, " % (scheme) +
@@ -113,12 +116,13 @@ def lookup_region(scheme):
         return region
 
     try:
-        with open(os.path.expanduser(lookup[scheme]), "r") as fh:
-            if scheme == "s3":
-                content = fh.read()
-                region = re.findall(
-                    '(region\ =\ )(.*)\n?', content
-                )[0][1]
+        fh = open(os.path.expanduser(lookup[scheme]), "r", encoding="utf-8")
+        if scheme == "s3":
+            content = fh.read()
+            region = re.findall(
+                '(region\ =\ )(.*)\n?', content
+            )[0][1]
+        fh.close()
     except:
         raise RuntimeError(
             "%s region could not be set automatically, " % (scheme) +
@@ -138,12 +142,13 @@ def lookup_project(scheme):
         return project
 
     try:
-        with open(os.path.expanduser(lookup[scheme]), "r") as fh:
-            if scheme == "gs":
-                content = fh.read()
-                project = re.findall(
-                    '(project\ =\ )(.*)\n?', content
-                )[0][1]
+        fh = open(os.path.expanduser(lookup[scheme]), "r", encoding="utf-8")
+        if scheme == "gs":
+            content = fh.read()
+            project = re.findall(
+                '(project\ =\ )(.*)\n?', content
+            )[0][1]
+        fh.close()
     except:
         raise RuntimeError(
             "%s project could not be set automatically, " % (scheme) +

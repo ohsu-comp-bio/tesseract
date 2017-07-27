@@ -1,3 +1,4 @@
+import io
 import os
 import tempfile
 import unittest
@@ -47,7 +48,7 @@ class TestFileStore(unittest.TestCase):
     def test_exists(self):
         tmpd = os.path.join(self.fs_path, "testdir")
         os.mkdir(tmpd)
-        tmpf = tempfile.NamedTemporaryFile(dir=tmpd, delete=False)
+        tmpf = tempfile.NamedTemporaryFile(mode="w", dir=tmpd, delete=False)
         tmpf.close()
         self.assertTrue(
             self.fs.exists(os.path.basename(tmpf.name))
@@ -63,16 +64,20 @@ class TestFileStore(unittest.TestCase):
 
     def test_upload(self):
         u = self.fs.upload(
-            name="testfile.txt", contents="hello", overwrite_existing=False
+            name="testfile.txt",
+            contents="hello".encode("utf8"),
+            overwrite_existing=False
         )
         self.assertTrue(os.path.exists(u))
-        self.assertEqual(open(u, "r").read(), "hello")
+        self.assertEqual(io.open(u, "r").read(), "hello")
 
         # overwrite existing
         u = self.fs.upload(
-            name="testfile.txt", contents="world", overwrite_existing=True
+            name="testfile.txt",
+            contents="world".encode("utf8"),
+            overwrite_existing=True
         )
-        self.assertEqual(open(u, "r").read(), "world")
+        self.assertEqual(io.open(u, "r").read(), "world")
 
         # no overwrite
         with self.assertRaises(OSError):
@@ -88,10 +93,14 @@ class TestFileStore(unittest.TestCase):
             self.fs.upload()
 
     def test_download(self):
-        src = tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=False)
+        src = tempfile.NamedTemporaryFile(
+            mode="w", dir=self.tmpdir, delete=False
+        )
         src.write("content")
         src.close()
-        src2 = tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=False)
+        src2 = tempfile.NamedTemporaryFile(
+            mode="w", dir=self.tmpdir, delete=False
+        )
         src2.write("other content")
         src2.close()
         dest = os.path.join(self.tmpdir, "test_dest.txt")

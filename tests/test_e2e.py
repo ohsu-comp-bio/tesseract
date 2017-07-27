@@ -1,3 +1,4 @@
+import io
 import os
 import tempfile
 
@@ -38,14 +39,16 @@ class TestTesseractE2E(SimpleServerTest):
 
     def test_with_input_and_output(self):
         def cat(in_file, out_file):
-            with open(in_file, "rb") as fh:
+            with io.open(in_file, "rb") as fh:
                 content = fh.read()
-            with open(out_file, "wb") as fh:
+            with io.open(out_file, "wb") as fh:
                 fh.write(content)
             return True
 
         r = self.runner.clone()
-        tmp_in = tempfile.NamedTemporaryFile(dir=self.tmpdir, delete=False)
+        tmp_in = tempfile.NamedTemporaryFile(
+            mode="w", dir=self.tmpdir, delete=False
+        )
         tmp_in.write("fizzbuzz")
         tmp_in.close()
         tmp_out = "./test_output.txt"
@@ -56,6 +59,6 @@ class TestTesseractE2E(SimpleServerTest):
         self.assertTrue(f.result())
         self.assertTrue(os.path.exists(output_url))
         self.assertEqual(
-            open(output_url, "rb").read(),
+            io.open(output_url, "r").read(),
             "fizzbuzz"
         )

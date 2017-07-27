@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 import tes
 import unittest
@@ -32,7 +33,12 @@ class TestTesseract(unittest.TestCase):
         self.assertEqual(self.runner.cpu_cores, None)
         self.assertEqual(self.runner.ram_gb, None)
         self.assertEqual(self.runner.disk_gb, None)
-        self.assertEqual(self.runner.docker, "python:2.7")
+        self.assertEqual(
+            self.runner.docker,
+            "python:%s.%s.%s" % (sys.version_info.major,
+                                 sys.version_info.minor,
+                                 sys.version_info.micro)
+        )
         self.assertEqual(self.runner.libraries, ["cloudpickle"])
 
     def test_clone(self):
@@ -44,13 +50,15 @@ class TestTesseract(unittest.TestCase):
     def test_with_resources(self):
         r = self.runner.clone()
         r.with_resources(cpu_cores=2, ram_gb=4)
-        self.assertEqual(r.input_files, [])
-        self.assertEqual(r.output_files, [])
+        self.assertEqual(r.input_files, self.runner.input_files)
+        self.assertEqual(r.output_files, self.runner.output_files)
         self.assertEqual(r.cpu_cores, 2)
+        self.assertNotEqual(r.cpu_cores, self.runner.cpu_cores)
         self.assertEqual(r.ram_gb, 4)
-        self.assertEqual(r.disk_gb, None)
-        self.assertEqual(r.docker, "python:2.7")
-        self.assertEqual(r.libraries, ["cloudpickle"])
+        self.assertNotEqual(r.ram_gb, self.runner.ram_gb)
+        self.assertEqual(r.disk_gb, self.runner.disk_gb)
+        self.assertEqual(r.docker, self.runner.docker)
+        self.assertEqual(r.libraries, self.runner.libraries)
 
     def test_with_input(self):
         r = self.runner.clone()

@@ -1,18 +1,22 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, unicode_literals
 
 import cloudpickle
 import copy
 import os
 import re
+import sys
 import tempfile
 import tes
 import uuid
 
 from attr import attrs, attrib, Factory
 from attr.validators import instance_of, optional
+from builtins import str
 from collections import Callable
 from concurrent.futures import ThreadPoolExecutor
+from io import open
 from requests.utils import urlparse
+from tes.models import strconv
 
 from tesseract.filestore import FileStore
 from tesseract.utils import process_url
@@ -21,9 +25,9 @@ from tesseract.utils import process_url
 @attrs
 class Tesseract(object):
     file_store = attrib(validator=instance_of(FileStore))
-    tes_url = attrib(default="http://localhost:8000")
-    __tes_client = attrib(init=False)
-    __id = attrib(init=False)
+    tes_url = attrib(default="http://localhost:8000", convert=strconv)
+    __tes_client = attrib(init=False,  validator=instance_of(tes.HTTPClient))
+    __id = attrib(init=False, convert=strconv, validator=instance_of(str))
     input_files = attrib(
         default=Factory(list), validator=tes.models.list_of(tes.TaskParameter)
     )
@@ -37,10 +41,17 @@ class Tesseract(object):
     disk_gb = attrib(
         default=None, validator=optional(instance_of((int, float)))
     )
-    docker = attrib(default="python:2.7", validator=instance_of(str))
-    libraries = attrib(
-        validator=tes.models.list_of(str)
+    docker = attrib(
+        convert=strconv, validator=instance_of(str)
     )
+    libraries = attrib(
+        convert=strconv, validator=tes.models.list_of(str)
+    )
+
+    @docker.default
+    def __default_docker(self):
+        v = sys.version_info
+        return "python:%s.%s.%s" % (v.major, v.minor, v.micro)
 
     @libraries.default
     def __default_libraries(self):
@@ -214,8 +225,8 @@ class Tesseract(object):
 
 @attrs
 class Future(object):
-    __id = attrib(convert=str, validator=instance_of(str))
-    __output_url = attrib(validator=instance_of(str))
+    __id = attrib(convert=strconv, validator=instance_of(str))
+    __output_url = attrib(convert=strconv, validator=instance_of(str))
     __file_store = attrib(validator=instance_of(FileStore))
     __client = attrib(validator=instance_of(tes.HTTPClient))
     __execption = attrib(

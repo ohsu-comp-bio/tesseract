@@ -2,6 +2,8 @@ sudo: required
 language: python
 python:
   - 2.7
+  - 3.5
+  - 3.6
 services:
   - docker
 os:
@@ -10,8 +12,8 @@ os:
 install:
   - pip install pip --upgrade
   - pip install setuptools --upgrade
-  - pip install flake8 coverage nose coveralls
   - pip install -r requirements.txt
+  - pip install -r tests/requirements.txt
   - python setup.py install
 
 before_script:

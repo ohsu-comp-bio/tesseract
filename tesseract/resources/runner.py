@@ -3,6 +3,8 @@
 import argparse
 import cloudpickle
 
+from io import open
+
 
 def run(pickled_runner):
     f = cloudpickle.load(open(pickled_runner, "rb"))

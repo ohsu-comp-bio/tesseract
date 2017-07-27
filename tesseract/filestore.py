@@ -1,4 +1,5 @@
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, unicode_literals
+
 
 import os
 import re
@@ -8,7 +9,10 @@ import uuid
 
 from attr import attrs, attrib
 from attr.validators import instance_of, optional
+from builtins import str
 from libcloud.storage.providers import get_driver
+from io import open
+from tes.models import strconv
 from requests.utils import urlparse
 
 from tesseract.utils import (makedirs, process_url, lookup_provider,
@@ -19,23 +23,35 @@ from tesseract.utils import (makedirs, process_url, lookup_provider,
 @attrs
 class FileStore(object):
     filestore_url = attrib(convert=process_url)
-    key = attrib(default=None, validator=optional(instance_of(str)))
-    secret = attrib(default=None, validator=optional(instance_of(str)))
+    key = attrib(
+        default=None, convert=strconv, validator=optional(instance_of(str))
+    )
+    secret = attrib(
+        default=None, convert=strconv, validator=optional(instance_of(str))
+    )
     secure = attrib(default=True, validator=instance_of(bool))
-    region = attrib(default=None, validator=optional(instance_of(str)))
-    project = attrib(default=None, validator=optional(instance_of(str)))
+    region = attrib(
+        default=None, convert=strconv, validator=optional(instance_of(str))
+    )
+    project = attrib(
+        default=None, convert=strconv, validator=optional(instance_of(str))
+    )
     ex_force_auth_url = attrib(
-        default=None, validator=optional(instance_of(str))
+        default=None, convert=strconv, validator=optional(instance_of(str))
     )
     ex_force_auth_version = attrib(
-        default='2.0_password', validator=optional(instance_of(str))
+        default='2.0_password',
+        convert=strconv,
+        validator=optional(instance_of(str))
     )
-    ex_tenant_name = attrib(default=None, validator=optional(instance_of(str)))
+    ex_tenant_name = attrib(
+        default=None, convert=strconv, validator=optional(instance_of(str))
+    )
     provider = attrib(init=False)
     driver = attrib(init=False)
-    scheme = attrib(init=False, validator=instance_of(str))
-    __bucket = attrib(init=False, validator=instance_of(str))
-    __path = attrib(init=False, validator=instance_of(str))
+    scheme = attrib(init=False, convert=strconv, validator=instance_of(str))
+    __bucket = attrib(init=False, convert=strconv, validator=instance_of(str))
+    __path = attrib(init=False, convert=strconv, validator=instance_of(str))
     supported = ["file", "gs", "s3", "swift"]
 
     @filestore_url.validator
@@ -166,10 +182,10 @@ class FileStore(object):
                     "File exists; to force set overwrite_existing to True"
                 )
             makedirs(os.path.dirname(url), exists_ok=True)
-            with open(url, "w") as fh:
+            with open(url, "wb") as fh:
                 fh.write(contents)
         else:
-            tmpf = tempfile.NamedTemporaryFile(delete=False)
+            tmpf = tempfile.NamedTemporaryFile(mode="wb", delete=False)
             tmpf.write(contents)
             tmpf.close()
             self.driver.upload_object(

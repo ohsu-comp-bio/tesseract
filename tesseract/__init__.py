@@ -7,3 +7,5 @@ __all__ = [
     Tesseract,
     FileStore
 ]
+
+__version__ = "0.1.0"
