@@ -4,12 +4,13 @@ from __future__ import absolute_import, print_function, unicode_literals
 import os
 import re
 import shutil
+import six
 import tempfile
 import uuid
 
 from attr import attrs, attrib
 from attr.validators import instance_of, optional
-from builtins import str
+from builtins import str, bytes
 from libcloud.storage.providers import get_driver
 from io import open
 from tes.models import strconv
@@ -173,6 +174,9 @@ class FileStore(object):
 
         if path is not None:
             contents = open(path, "r").read()
+
+        if isinstance(contents, six.string_types):
+            contents = bytes(contents, "utf8")
 
         url = os.path.join(self.__path, name)
 

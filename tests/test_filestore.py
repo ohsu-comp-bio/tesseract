@@ -65,7 +65,7 @@ class TestFileStore(unittest.TestCase):
     def test_upload(self):
         u = self.fs.upload(
             name="testfile.txt",
-            contents="hello".encode("utf8"),
+            contents="hello",
             overwrite_existing=False
         )
         self.assertTrue(os.path.exists(u))
@@ -74,7 +74,7 @@ class TestFileStore(unittest.TestCase):
         # overwrite existing
         u = self.fs.upload(
             name="testfile.txt",
-            contents="world".encode("utf8"),
+            contents="world",
             overwrite_existing=True
         )
         self.assertEqual(io.open(u, "r").read(), "world")

@@ -81,7 +81,7 @@ def lookup_credentials(scheme):
                 raise
 
         elif scheme in lookup:
-            fh = open(os.path.expanduser(lookup[scheme]), "r", encoding="utf-8")
+            fh = open(os.path.expanduser(lookup[scheme]), "r")
             content = fh.read()
             fh.close()
             if scheme == "gs":
@@ -116,7 +116,7 @@ def lookup_region(scheme):
         return region
 
     try:
-        fh = open(os.path.expanduser(lookup[scheme]), "r", encoding="utf-8")
+        fh = open(os.path.expanduser(lookup[scheme]), "r")
         if scheme == "s3":
             content = fh.read()
             region = re.findall(
@@ -142,7 +142,7 @@ def lookup_project(scheme):
         return project
 
     try:
-        fh = open(os.path.expanduser(lookup[scheme]), "r", encoding="utf-8")
+        fh = open(os.path.expanduser(lookup[scheme]), "r")
         if scheme == "gs":
             content = fh.read()
             project = re.findall(
