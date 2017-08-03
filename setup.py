@@ -36,7 +36,7 @@ setup(
     license='MIT',
     packages=["tesseract"],
     package_data={"tesseract": ["resources/*.py"]},
-    python_requires='>=2.6, <3',
+    python_requires='>=2.6, <4',
     install_requires=[
         "apache_libcloud>=2.1.0",
         "attrs>=17.2.0",

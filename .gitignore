@@ -19,3 +19,5 @@ eggs/
 test_tmp
 funnel-work-dir
 .coverage
+local_file_store
+.ipynb_checkpoints

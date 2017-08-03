@@ -12,7 +12,7 @@ import uuid
 
 from attr import attrs, attrib, Factory
 from attr.validators import instance_of, optional
-from builtins import str
+from builtins import str, bytes
 from collections import Callable
 from concurrent.futures import ThreadPoolExecutor
 from io import open
@@ -173,6 +173,8 @@ class Tesseract(object):
         runner = pkg_resources.resource_string(
             __name__, "resources/runner.py"
         )
+        if isinstance(runner, bytes):
+            runner = runner.decode("utf8")
 
         cmd_install_reqs = "pip install %s" % (" ".join(self.libraries))
         cmd_tesseract = "python tesseract.py func.pickle"
@@ -195,7 +197,7 @@ class Tesseract(object):
                     name="tesseract runner script",
                     path="/tmp/tesseract/tesseract.py",
                     type="FILE",
-                    contents=runner
+                    contents=str(runner)
                 )
             ],
             outputs=self.output_files + [
