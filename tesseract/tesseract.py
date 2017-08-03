@@ -3,6 +3,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import cloudpickle
 import copy
 import os
+import pkg_resources
 import re
 import sys
 import tempfile
@@ -169,8 +170,8 @@ class Tesseract(object):
         )
 
     def _create_task_msg(self, input_cp_url, output_cp_url):
-        runner = os.path.join(
-            os.path.dirname(__file__), "resources", "runner.py"
+        runner = pkg_resources.resource_string(
+            __name__, "resources/runner.py"
         )
 
         cmd_install_reqs = "pip install %s" % (" ".join(self.libraries))
@@ -194,7 +195,7 @@ class Tesseract(object):
                     name="tesseract runner script",
                     path="/tmp/tesseract/tesseract.py",
                     type="FILE",
-                    contents=open(runner, "r").read()
+                    contents=runner
                 )
             ],
             outputs=self.output_files + [

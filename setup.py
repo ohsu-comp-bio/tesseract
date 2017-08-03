@@ -4,7 +4,7 @@ import io
 import os
 import re
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 def read(*names, **kwargs):
@@ -34,7 +34,8 @@ setup(
     maintainer_email='strucka@ohsu.edu',
     url="https://github.com/ohsu-comp-bio/tesseract",
     license='MIT',
-    packages=find_packages(),
+    packages=["tesseract"],
+    package_data={"tesseract": ["resources/*.py"]},
     python_requires='>=2.6, <3',
     install_requires=[
         "apache_libcloud>=2.1.0",
