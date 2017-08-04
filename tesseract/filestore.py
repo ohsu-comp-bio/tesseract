@@ -216,6 +216,7 @@ class FileStore(object):
         if u.scheme == "file":
             shutil.copyfile(source, destination_path)
         else:
+            source = re.sub("^/", "", source)
             obj = self.driver.get_object(self.__bucket, source)
             self.driver.download_object(
                 obj,
