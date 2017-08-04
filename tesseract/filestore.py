@@ -30,7 +30,6 @@ class FileStore(object):
     secret = attrib(
         default=None, convert=strconv, validator=optional(instance_of(str))
     )
-    secure = attrib(default=True, validator=instance_of(bool))
     region = attrib(
         default=None, convert=strconv, validator=optional(instance_of(str))
     )
@@ -84,18 +83,20 @@ class FileStore(object):
             # Openstack Swift
             if self.scheme == "swift":
                 try:
-                    self.ex_force_auth_url = os.environ['OS_AUTH_URL']
+                    auth_url = urlparse(os.environ['OS_AUTH_URL'])
+                    self.ex_force_auth_url = "%s://%s" % (auth_url.scheme,
+                                                          auth_url.netloc)
                     self.ex_tenant_name = os.environ['OS_TENANT_NAME']
                 except:
                     raise ValueError(
-                        "OS_AUTH_URL and OS_TENANT_NAME were not found"
+                        "OS_AUTH_URL and/or OS_TENANT_NAME were not found"
                     )
                 self.driver = self.provider(
                     key=self.key,
                     secret=self.secret,
                     ex_force_auth_url=self.ex_force_auth_url,
                     ex_tenant_name=self.ex_tenant_name,
-                    ex_force_auth_version=self.ex_force_auth_version
+                    ex_force_auth_version=self.ex_force_auth_version,
                 )
 
             # Google Storage or Amazon S3
@@ -109,7 +110,6 @@ class FileStore(object):
                 self.driver = self.provider(
                     key=self.key,
                     secret=self.secret,
-                    secure=self.secure,
                     region=self.region,
                     project=self.project
                 )
@@ -170,7 +170,7 @@ class FileStore(object):
             if path is None:
                 name = os.path.basname(path)
             else:
-                name = str("tmp" + uuid.uuid4().hex)
+                name = str("tmp_" + uuid.uuid4().hex)
 
         if path is not None:
             contents = open(path, "r").read()
@@ -189,11 +189,12 @@ class FileStore(object):
             with open(url, "wb") as fh:
                 fh.write(contents)
         else:
-            tmpf = tempfile.NamedTemporaryFile(mode="wb", delete=False)
+            url = re.sub("^/", "", url)
+            tmpf = tempfile.NamedTemporaryFile(mode="w", delete=False)
             tmpf.write(contents)
             tmpf.close()
             self.driver.upload_object(
-                file_path=path,
+                file_path=tmpf.name,
                 container=self.driver.get_container(self.__bucket),
                 object_name=url
             )
