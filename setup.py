@@ -25,7 +25,7 @@ def find_version(*file_paths):
 
 
 setup(
-    name='tesseract',
+    name='py-tesseract',
     version=find_version("tesseract", "__init__.py"),
     description='Remote code execution with the GA4GH Task Execution API',
     author='OHSU Computational Biology',
