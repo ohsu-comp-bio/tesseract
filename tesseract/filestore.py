@@ -199,6 +199,7 @@ class FileStore(object):
                 object_name=url
             )
             os.remove(tmpf.name)
+            return self.scheme + "://" + self.__bucket + "/" + url
 
         return url
 

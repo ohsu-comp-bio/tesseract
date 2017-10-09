@@ -77,13 +77,14 @@ class Tesseract(object):
         return copy.deepcopy(self)
 
     def with_resources(self, cpu_cores=None, ram_gb=None, disk_gb=None,
-                       docker=None, libraries=[]):
+                       docker=None, libraries=None):
         # only override if set
         self.cpu_cores = cpu_cores or self.cpu_cores
         self.ram_gb = ram_gb or self.ram_gb
         self.disk_gb = disk_gb or self.disk_gb
         self.docker = docker or self.docker
-        self.libraries = libraries or self.libraries
+        if libraries is not None:
+            self.libraries = libraries
 
     def with_input(self, url, path):
         u = urlparse(process_url(url))
