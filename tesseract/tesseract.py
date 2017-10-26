@@ -85,6 +85,10 @@ class Tesseract(object):
         self.docker = docker or self.docker
         if libraries is not None:
             self.libraries = libraries
+    
+    def with_upload(self, path, url, dockerpath):
+        input_cp_url = self.file_store.upload(path=path, name=url)
+        return self.with_input(input_cp_url, dockerpath)
 
     def with_input(self, url, path):
         u = urlparse(process_url(url))
