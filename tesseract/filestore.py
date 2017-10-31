@@ -141,8 +141,8 @@ class FileStore(object):
         )
 
     def exists(self, name):
-        if os.path.basename(name) != name:
-            raise ValueError("must pass only the name of a file or directory")
+        #if os.path.basename(name) != name:
+        #    raise ValueError("must pass only the name of a file or directory")
         found = False
 
         if self.scheme == "file":

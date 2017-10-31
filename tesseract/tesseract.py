@@ -9,6 +9,7 @@ import sys
 import tempfile
 import tes
 import uuid
+import hashlib
 
 from attr import attrs, attrib, Factory
 from attr.validators import instance_of, optional
@@ -48,6 +49,9 @@ class Tesseract(object):
     libraries = attrib(
         convert=strconv, validator=tes.models.list_of(str)
     )
+    resume_prefix = attrib(
+        convert=strconv, validator=instance_of(str), default=""
+    )
 
     @docker.default
     def __default_docker(self):
@@ -65,7 +69,7 @@ class Tesseract(object):
             raise ValueError("%s must be a valid URL" % (attribute))
 
     def __attrs_post_init__(self):
-        self.__tes_client = tes.HTTPClient(self.tes_url)
+        self.__tes_client = tes.HTTPClient(self.tes_url, timeout=60)
         self.__id = None
 
     def __get_id(self):
@@ -85,6 +89,9 @@ class Tesseract(object):
         self.docker = docker or self.docker
         if libraries is not None:
             self.libraries = libraries
+    
+    def with_resume(self, key=None):
+        self.resume_prefix = key or self.resume_prefix
     
     def with_upload(self, path, url, dockerpath):
         input_cp_url = self.file_store.upload(path=path, name=url)
@@ -156,6 +163,23 @@ class Tesseract(object):
         # upload to object store if necessary
         runner = {"func": func, "args": args, "kwargs": kwargs}
         cp_str = cloudpickle.dumps(runner)
+        if len(self.resume_prefix):
+            m = hashlib.sha256()
+            m.update(cp_str)
+            mhex = m.hexdigest()
+
+            input_name = os.path.join(self.resume_prefix, mhex, "tesseract_func.pickle")
+            output_cp_url = self.file_store.generate_url(
+                "%s/tesseract_result.pickle" % (run_id)
+            )
+            print("Checking %s" % (output_cp_url))
+            if self.file_store.exists(output_cp_url):
+                print("Found object!!!") 
+                return None
+            else:
+                input_cp_url = self.file_store.upload(name=input_name, contents=cp_str)
+            
+
         input_name = os.path.join(run_id, "tesseract_func.pickle")
         input_cp_url = self.file_store.upload(name=input_name, contents=cp_str)
 
