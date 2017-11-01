@@ -6,7 +6,6 @@ import os
 import pkg_resources
 import re
 import sys
-import tempfile
 import tes
 import uuid
 import hashlib
@@ -15,12 +14,11 @@ from attr import attrs, attrib, Factory
 from attr.validators import instance_of, optional
 from builtins import str, bytes
 from collections import Callable
-from concurrent.futures import ThreadPoolExecutor
-from io import open
 from requests.utils import urlparse
 from tes.models import strconv
 
-from tesseract.filestore import FileStore
+from tesseract.filestore import FileStore, FileExistsError
+from tesseract.future import Future, CachedFuture
 from tesseract.utils import process_url
 
 
@@ -123,8 +121,15 @@ class Tesseract(object):
     def with_upload(self, path):
         run_id = self.__get_id()
         name = os.path.join(run_id, os.path.basename(path))
-        input_cp_url = self.file_store.upload(path=path, name=name)
-        return self.with_input(input_cp_url, path)
+        try:
+            input_url = self.file_store.upload(
+                path=path, name=name, overwrite_existing=False
+            )
+        except FileExistsError:
+            input_url = self.file_store.generate_url(name)
+            print("warning: file [%s] was not uploaded." % (path),
+                  "It already exists in the FileStore [%s]" % (input_url))
+        return self.with_input(input_url, path)
 
     def with_input(self, url, path):
         u = urlparse(process_url(url))
@@ -200,10 +205,8 @@ class Tesseract(object):
         output_name = os.path.join(run_id, "tesseract_res_%s.pickle" % (mhex))
 
         if self.file_store.exists(input_name, type="file"):
-            print(
-                "Found cached input: %s" %
-                (self.file_store.generate_url(input_name))
-            )
+            print("Found cached input: %s" %
+                  (self.file_store.generate_url(input_name)))
         else:
             input_cp_url = self.file_store.upload(
                 name=input_name, contents=cp_str
@@ -214,7 +217,7 @@ class Tesseract(object):
         if self.file_store.exists(output_name, type="file"):
             print("Found cached output: %s" % (output_cp_url))
             return CachedFuture(
-                output_cp_url,
+                output_name,
                 self.file_store,
             )
 
@@ -223,7 +226,7 @@ class Tesseract(object):
         id = self.__tes_client.create_task(task_msg)
         return Future(
             id,
-            output_cp_url,
+            output_name,
             self.file_store,
             self.__tes_client
         )
@@ -283,88 +286,3 @@ class Tesseract(object):
             ]
         )
         return task
-
-
-@attrs
-class Future(object):
-    __id = attrib(convert=strconv, validator=instance_of(str))
-    __output_url = attrib(convert=strconv, validator=instance_of(str))
-    __file_store = attrib(validator=instance_of(FileStore))
-    __client = attrib(validator=instance_of(tes.HTTPClient))
-    __execption = attrib(
-        init=False, default=None, validator=optional(instance_of(Exception))
-    )
-    __result = attrib(init=False, default=None)
-
-    def __attrs_post_init__(self):
-        pool = ThreadPoolExecutor(1)
-        self.__result = pool.submit(self.__poll)
-
-    def __poll(self):
-        r = self.__client.wait(self.__id)
-        if r.state != "COMPLETE":
-            r = self.__client.get_task(self.__id, "FULL")
-            raise RuntimeError("remote job failed:\n%s" % (r))
-
-        tmp = tempfile.NamedTemporaryFile(delete=False)
-        tmp.close()
-        self.__file_store.download(self.__output_url, tmp.name, True)
-        return cloudpickle.load(open(tmp.name, "rb"))
-
-    def result(self, timeout=None):
-        return self.__result.result(timeout=timeout)
-
-    def exeception(self, timeout=None):
-        return self.__result.exception(timeout=timeout)
-
-    def running(self):
-        r = self.__client.get_task(self.__id, "MINIMAL")
-        return r.state in["QUEUED", "INITIALIZING", "RUNNING"]
-
-    def done(self):
-        r = self.__client.get_task(self.__id, "MINIMAL")
-        return r.state in ["COMPLETE", "ERROR", "SYSTEM_ERROR", "CANCELED"]
-
-    def cancel(self):
-        self.__result.cancel()
-        self.__client.cancel(self.__id)
-        return True
-
-    def cancelled(self):
-        r = self.__client.get_task(self.__id, "MINIMAL")
-        return r.state == "CANCELED"
-
-
-@attrs
-class CachedFuture(object):
-    __output_url = attrib(convert=strconv, validator=instance_of(str))
-    __file_store = attrib(validator=instance_of(FileStore))
-    __result = attrib(init=False, default=None)
-
-    def __attrs_post_init__(self):
-        pool = ThreadPoolExecutor(1)
-        self.__result = pool.submit(self.__download)
-
-    def __download(self):
-        tmp = tempfile.NamedTemporaryFile(delete=False)
-        tmp.close()
-        self.__file_store.download(self.__output_url, tmp.name, True)
-        return cloudpickle.load(open(tmp.name, "rb"))
-
-    def result(self, timeout=None):
-        return self.__result.result(timeout=timeout)
-
-    def exeception(self, timeout=None):
-        return self.__result.exception(timeout=timeout)
-
-    def running(self):
-        return self.__result is None
-
-    def done(self):
-        return self.__result is not None
-
-    def cancel(self):
-        return False
-
-    def cancelled(self):
-        return False

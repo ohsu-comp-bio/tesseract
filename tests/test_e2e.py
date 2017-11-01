@@ -5,7 +5,7 @@ import tempfile
 from requests.utils import urlparse
 
 from tesseract.filestore import FileStore
-from tesseract.tesseract import Tesseract
+from tesseract.tesseract import Tesseract, Future, CachedFuture
 
 from funnel_test_util import SimpleServerTest
 
@@ -62,3 +62,46 @@ class TestTesseractE2E(SimpleServerTest):
             io.open(output_url, "r").read(),
             "fizzbuzz"
         )
+
+    def test_with_upload(self):
+        def cat(in_file):
+            with io.open(in_file, "rb") as fh:
+                fh.read()
+            return True
+
+        r = self.runner.clone()
+        r._Tesseract__id = "test-id"
+
+        tmp_in = tempfile.NamedTemporaryFile(
+            mode="w", dir=self.tmpdir, delete=False
+        )
+        tmp_in.write("fizzbuzz")
+        tmp_in.close()
+
+        r.with_upload(tmp_in.name)
+        # this second call should do nothing since the fiel will already
+        # have been uploaded
+        r.with_upload(tmp_in.name)
+
+        f = r.run(cat, tmp_in.name)
+        self.assertTrue(f.result())
+        self.assertTrue(
+            self.fs.exists(
+                os.path.join("test-id", os.path.basename(tmp_in.name))
+            )
+        )
+
+    def test_with_call_caching(self):
+        def hello(s):
+            return "hello %s" % (s)
+
+        r = self.runner.clone()
+        r.with_call_caching("test_cache")
+
+        f = r.run(hello, "world")
+        self.assertEqual(f.result(), "hello world")
+        self.assertTrue(isinstance(f, Future))
+
+        cf = r.run(hello, "world")
+        self.assertEqual(cf.result(), "hello world")
+        self.assertTrue(isinstance(cf, CachedFuture))

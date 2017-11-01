@@ -12,6 +12,7 @@ from attr import attrs, attrib
 from attr.validators import instance_of, optional
 from builtins import str, bytes
 from libcloud.storage.providers import get_driver
+from libcloud.storage.types import ObjectDoesNotExistError
 from io import open
 from tes.models import strconv
 from requests.utils import urlparse
@@ -211,13 +212,20 @@ class FileStore(object):
 
         if self.scheme == "file":
             if os.path.exists(url) and not overwrite_existing:
-                raise OSError(
-                    "File exists; to force set overwrite_existing to True"
-                )
+                raise FileExistsError(self.generate_url(name))
             makedirs(os.path.dirname(url), exists_ok=True)
             with open(url, "wb") as fh:
                 fh.write(contents)
         else:
+            try:
+                self.driver.get_object(
+                    self.__bucket, os.path.join(self.__path, name)
+                )
+                if not overwrite_existing:
+                    raise FileExistsError(self.generate_url(name))
+            except ObjectDoesNotExistError:
+                pass
+
             tmpf = tempfile.NamedTemporaryFile(mode="w", delete=False)
             tmpf.write(contents)
             tmpf.close()
@@ -233,9 +241,7 @@ class FileStore(object):
 
     def download(self, name, destination_path, overwrite_existing=False):
         if os.path.exists(destination_path) and not overwrite_existing:
-            raise OSError(
-                "destination_path exists, and overwrite_existing = False"
-            )
+            raise FileExistsError(destination_path)
 
         if self.scheme == "file":
             shutil.copyfile(os.path.join(self.__path, name), destination_path)
@@ -249,3 +255,11 @@ class FileStore(object):
                 overwrite_existing
             )
         return destination_path
+
+
+class FileExistsError(Exception):
+    def __init__(self, file):
+        super(FileExistsError, self).__init__(
+            "file [%s] exists; to force set overwrite_existing to True" %
+            (file)
+        )

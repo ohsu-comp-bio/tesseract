@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from tesseract.filestore import FileStore
+from tesseract.filestore import FileStore, FileExistsError
 
 
 class TestFileStore(unittest.TestCase):
@@ -51,16 +51,22 @@ class TestFileStore(unittest.TestCase):
         tmpf = tempfile.NamedTemporaryFile(mode="w", dir=tmpd, delete=False)
         tmpf.close()
         self.assertTrue(
-            self.fs.exists(os.path.basename(tmpf.name))
+            self.fs.exists(
+                os.path.join(
+                    os.path.basename(tmpd),
+                    os.path.basename(tmpf.name)
+                ),
+                type='f'
+            )
         )
         self.assertTrue(
-            self.fs.exists(os.path.basename(tmpd))
+            self.fs.exists(os.path.basename(tmpd), type='d')
         )
         self.assertFalse(
             self.fs.exists("doesnotexist")
         )
         with self.assertRaises(ValueError):
-            self.fs.exists(tmpd)
+            self.fs.exists(tmpd, type="faketype")
 
     def test_upload(self):
         u = self.fs.upload(
@@ -80,7 +86,7 @@ class TestFileStore(unittest.TestCase):
         self.assertEqual(io.open(u, "r").read(), "world")
 
         # no overwrite
-        with self.assertRaises(OSError):
+        with self.assertRaises(FileExistsError):
             self.fs.upload(
                 name="testfile.txt", contents="hello", overwrite_existing=False
             )
@@ -94,35 +100,31 @@ class TestFileStore(unittest.TestCase):
 
     def test_download(self):
         src = tempfile.NamedTemporaryFile(
-            mode="w", dir=self.tmpdir, delete=False
+            mode="w", dir=self.fs_path, delete=False
         )
         src.write("content")
         src.close()
         src2 = tempfile.NamedTemporaryFile(
-            mode="w", dir=self.tmpdir, delete=False
+            mode="w", dir=self.fs_path, delete=False
         )
         src2.write("other content")
         src2.close()
         dest = os.path.join(self.tmpdir, "test_dest.txt")
 
         p = self.fs.download(
-            "file://" + src.name, dest, overwrite_existing=False
+            os.path.basename(src.name), dest, overwrite_existing=False
         )
         self.assertTrue(os.path.exists(p))
         self.assertEqual(open(p, 'r').read(), "content")
 
         # overwrite existing
         p = self.fs.download(
-            "file://" + src2.name, dest, overwrite_existing=True
+            os.path.basename(src2.name), dest, overwrite_existing=True
         )
         self.assertEqual(open(p, 'r').read(), "other content")
 
-        # no scheme
-        with self.assertRaises(ValueError):
-            self.fs.download(src.name, dest, overwrite_existing=True)
-
         # no overwrite
-        with self.assertRaises(OSError):
+        with self.assertRaises(FileExistsError):
             self.fs.download(
-                "file://" + src.name, dest, overwrite_existing=False
+                os.path.basename(src.name), dest, overwrite_existing=False
             )
