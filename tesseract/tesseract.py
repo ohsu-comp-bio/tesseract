@@ -27,9 +27,12 @@ from tesseract.utils import process_url
 @attrs
 class Tesseract(object):
     file_store = attrib(validator=instance_of(FileStore))
-    tes_url = attrib(default="http://localhost:8000", convert=strconv)
-    __tes_client = attrib(init=False,  validator=instance_of(tes.HTTPClient))
-    __id = attrib(init=False, convert=strconv, validator=instance_of(str))
+    tes_url = attrib(
+        default="http://localhost:8000",
+        convert=strconv,
+        validator=instance_of(str)
+    )
+    timeout = attrib(default=30, validator=instance_of(int))
     input_files = attrib(
         default=Factory(list), validator=tes.models.list_of(tes.TaskParameter)
     )
@@ -49,9 +52,11 @@ class Tesseract(object):
     libraries = attrib(
         convert=strconv, validator=tes.models.list_of(str)
     )
-    resume_prefix = attrib(
-        convert=strconv, validator=instance_of(str), default=""
+    cache_name = attrib(
+        default=None, convert=strconv, validator=optional(instance_of(str))
     )
+    __tes_client = attrib(init=False,  validator=instance_of(tes.HTTPClient))
+    __id = attrib(init=False, convert=strconv, validator=instance_of(str))
 
     @docker.default
     def __default_docker(self):
@@ -69,12 +74,34 @@ class Tesseract(object):
             raise ValueError("%s must be a valid URL" % (attribute))
 
     def __attrs_post_init__(self):
-        self.__tes_client = tes.HTTPClient(self.tes_url, timeout=60)
+        self.__tes_client = tes.HTTPClient(self.tes_url, timeout=self.timeout)
         self.__id = None
 
     def __get_id(self):
-        if self.__id is None or self.file_store.exists(self.__id):
+        # enable call caching by hardcoding the id attribute on the instance.
+        if self.cache_name is not None:
+            if self.__id is None:
+                self.__id = self.cache_name
+
+            # id is set meaning with_input, with_output, with_upload or
+            # run has been called. For any of these cases we set id to the
+            # cache name and adjust the input / output urls.
+            elif self.__id != self.cache_name:
+                # adjust urls for inputs and outputs for cached run
+                if self.input_files is not None:
+                    for i in self.input_files:
+                        i.url = re.sub(self.__id, self.cache_name, i.url)
+                if self.output_files is not None:
+                    for o in self.output_files:
+                        o.url = re.sub(self.__id, self.cache_name, o.url)
+
+                self.__id = self.cache_name
+
+        # no call caching - the id is reset if it is present in the FileStore
+        elif self.__id is None or self.file_store.exists(self.__id,
+                                                         type="directory"):
             self.__id = "tesseract_%s" % (uuid.uuid4().hex)
+
         return self.__id
 
     def clone(self):
@@ -89,13 +116,15 @@ class Tesseract(object):
         self.docker = docker or self.docker
         if libraries is not None:
             self.libraries = libraries
-    
-    def with_resume(self, key=None):
-        self.resume_prefix = key or self.resume_prefix
-    
-    def with_upload(self, path, url, dockerpath):
-        input_cp_url = self.file_store.upload(path=path, name=url)
-        return self.with_input(input_cp_url, dockerpath)
+
+    def with_call_caching(self, name):
+        self.cache_name = name
+
+    def with_upload(self, path):
+        run_id = self.__get_id()
+        name = os.path.join(run_id, os.path.basename(path))
+        input_cp_url = self.file_store.upload(path=path, name=name)
+        return self.with_input(input_cp_url, path)
 
     def with_input(self, url, path):
         u = urlparse(process_url(url))
@@ -163,30 +192,31 @@ class Tesseract(object):
         # upload to object store if necessary
         runner = {"func": func, "args": args, "kwargs": kwargs}
         cp_str = cloudpickle.dumps(runner)
-        if len(self.resume_prefix):
-            m = hashlib.sha256()
-            m.update(cp_str)
-            mhex = m.hexdigest()
 
-            input_name = os.path.join(self.resume_prefix, mhex, "tesseract_func.pickle")
-            output_cp_url = self.file_store.generate_url(
-                "%s/tesseract_result.pickle" % (run_id)
+        m = hashlib.sha256()
+        m.update(cp_str)
+        mhex = m.hexdigest()
+        input_name = os.path.join(run_id, "tesseract_func_%s.pickle" % (mhex))
+        output_name = os.path.join(run_id, "tesseract_res_%s.pickle" % (mhex))
+
+        if self.file_store.exists(input_name, type="file"):
+            print(
+                "Found cached input: %s" %
+                (self.file_store.generate_url(input_name))
             )
-            print("Checking %s" % (output_cp_url))
-            if self.file_store.exists(output_cp_url):
-                print("Found object!!!") 
-                return None
-            else:
-                input_cp_url = self.file_store.upload(name=input_name, contents=cp_str)
-            
-
-        input_name = os.path.join(run_id, "tesseract_func.pickle")
-        input_cp_url = self.file_store.upload(name=input_name, contents=cp_str)
+        else:
+            input_cp_url = self.file_store.upload(
+                name=input_name, contents=cp_str
+            )
 
         # define storage url for pickled output
-        output_cp_url = self.file_store.generate_url(
-            "%s/tesseract_result.pickle" % (run_id)
-        )
+        output_cp_url = self.file_store.generate_url(output_name)
+        if self.file_store.exists(output_name, type="file"):
+            print("Found cached output: %s" % (output_cp_url))
+            return CachedFuture(
+                output_cp_url,
+                self.file_store,
+            )
 
         # create task msg and submit
         task_msg = self._create_task_msg(input_cp_url, output_cp_url)
@@ -303,3 +333,38 @@ class Future(object):
     def cancelled(self):
         r = self.__client.get_task(self.__id, "MINIMAL")
         return r.state == "CANCELED"
+
+
+@attrs
+class CachedFuture(object):
+    __output_url = attrib(convert=strconv, validator=instance_of(str))
+    __file_store = attrib(validator=instance_of(FileStore))
+    __result = attrib(init=False, default=None)
+
+    def __attrs_post_init__(self):
+        pool = ThreadPoolExecutor(1)
+        self.__result = pool.submit(self.__download)
+
+    def __download(self):
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        tmp.close()
+        self.__file_store.download(self.__output_url, tmp.name, True)
+        return cloudpickle.load(open(tmp.name, "rb"))
+
+    def result(self, timeout=None):
+        return self.__result.result(timeout=timeout)
+
+    def exeception(self, timeout=None):
+        return self.__result.exception(timeout=timeout)
+
+    def running(self):
+        return self.__result is None
+
+    def done(self):
+        return self.__result is not None
+
+    def cancel(self):
+        return False
+
+    def cancelled(self):
+        return False

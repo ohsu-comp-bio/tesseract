@@ -57,7 +57,7 @@ def lookup_provider(scheme, region):
 
     try:
         provider = lookup[scheme][region]
-    except:
+    except Exception:
         raise RuntimeError(
             "%s provider for region %s could not be found" % (scheme, region)
         )
@@ -96,7 +96,7 @@ def lookup_credentials(scheme):
                 secret = re.findall(
                     '(aws_secret_access_key\ =\ )(.*)\n?', content
                 )[0][1]
-    except:
+    except Exception:
         raise RuntimeError(
             "%s credentials could not be set automatically, " % (scheme) +
             "please provide your key and secret"
@@ -123,7 +123,7 @@ def lookup_region(scheme):
                 '(region\ =\ )(.*)\n?', content
             )[0][1]
         fh.close()
-    except:
+    except Exception:
         raise RuntimeError(
             "%s region could not be set automatically, " % (scheme) +
             "please provide the region to use for your bucket"
@@ -149,7 +149,7 @@ def lookup_project(scheme):
                 '(project\ =\ )(.*)\n?', content
             )[0][1]
         fh.close()
-    except:
+    except Exception:
         raise RuntimeError(
             "%s project could not be set automatically, " % (scheme) +
             "please provide the project to use for your bucket"
