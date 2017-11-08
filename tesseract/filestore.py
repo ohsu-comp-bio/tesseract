@@ -218,15 +218,16 @@ class FileStore(object):
                 fh.write(contents)
         else:
             try:
+                key = u"%s" % (os.path.join(self.__path, name))
                 self.driver.get_object(
-                    self.__bucket, os.path.join(self.__path, name)
+                    self.__bucket, key
                 )
                 if not overwrite_existing:
                     raise FileExistsError(self.generate_url(name))
             except ObjectDoesNotExistError:
                 pass
 
-            tmpf = tempfile.NamedTemporaryFile(mode="w", delete=False)
+            tmpf = tempfile.NamedTemporaryFile(mode="wb", delete=False)
             tmpf.write(contents)
             tmpf.close()
             self.driver.upload_object(
@@ -246,8 +247,9 @@ class FileStore(object):
         if self.scheme == "file":
             shutil.copyfile(os.path.join(self.__path, name), destination_path)
         else:
+            key = u"%s" % (os.path.join(self.__path, name))
             obj = self.driver.get_object(
-                self.__bucket, os.path.join(self.__path, name)
+                self.__bucket, key
             )
             self.driver.download_object(
                 obj,

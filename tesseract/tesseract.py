@@ -205,8 +205,8 @@ class Tesseract(object):
         output_name = os.path.join(run_id, "tesseract_res_%s.pickle" % (mhex))
 
         if self.file_store.exists(input_name, type="file"):
-            print("Found cached input: %s" %
-                  (self.file_store.generate_url(input_name)))
+            input_cp_url = self.file_store.generate_url(input_name)
+            print("Found cached input: %s" % (input_cp_url))
         else:
             input_cp_url = self.file_store.upload(
                 name=input_name, contents=cp_str
