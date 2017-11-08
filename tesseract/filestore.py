@@ -24,7 +24,7 @@ from tesseract.utils import (makedirs, process_url, lookup_provider,
 
 @attrs
 class FileStore(object):
-    filestore_url = attrib(convert=process_url)
+    url = attrib(convert=process_url)
     key = attrib(
         default=None, convert=strconv, validator=optional(instance_of(str))
     )
@@ -55,8 +55,8 @@ class FileStore(object):
     __path = attrib(init=False, convert=strconv, validator=instance_of(str))
     supported = ["file", "gs", "s3", "swift"]
 
-    @filestore_url.validator
-    def __validate_filestore_url(self, attribute, value):
+    @url.validator
+    def __validate_url(self, attribute, value):
         u = urlparse(value)
         if u.scheme == "file" and u.netloc != "":
             raise ValueError(
@@ -68,7 +68,7 @@ class FileStore(object):
             )
 
     def __attrs_post_init__(self):
-        u = urlparse(self.filestore_url)
+        u = urlparse(self.url)
         self.scheme = u.scheme
         self.__bucket = u.netloc
 

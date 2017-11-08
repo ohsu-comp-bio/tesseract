@@ -218,7 +218,7 @@ class Tesseract(object):
             print("Found cached output: %s" % (output_cp_url))
             return CachedFuture(
                 output_name,
-                self.file_store,
+                FileStore(self.file_store.url),
             )
 
         # create task msg and submit
@@ -227,7 +227,7 @@ class Tesseract(object):
         return Future(
             id,
             output_name,
-            self.file_store,
+            FileStore(self.file_store.url),
             self.__tes_client
         )
 
