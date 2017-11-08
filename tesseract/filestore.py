@@ -37,23 +37,32 @@ class FileStore(object):
     project = attrib(
         default=None, convert=strconv, validator=optional(instance_of(str))
     )
-    ex_force_auth_url = attrib(
+    swift_force_auth_url = attrib(
         default=None, convert=strconv, validator=optional(instance_of(str))
     )
-    ex_force_auth_version = attrib(
+    swift_force_auth_version = attrib(
         default='2.0_password',
         convert=strconv,
         validator=optional(instance_of(str))
     )
-    ex_tenant_name = attrib(
+    swift_tenant_name = attrib(
         default=None, convert=strconv, validator=optional(instance_of(str))
     )
-    provider = attrib(init=False)
-    driver = attrib(init=False)
-    scheme = attrib(init=False, convert=strconv, validator=instance_of(str))
-    __bucket = attrib(init=False, convert=strconv, validator=instance_of(str))
-    __path = attrib(init=False, convert=strconv, validator=instance_of(str))
-    supported = ["file", "gs", "s3", "swift"]
+    provider = attrib(
+        init=False, default=None, validator=optional(instance_of(object))
+    )
+    driver = attrib(
+        init=False, default=None, validator=optional(instance_of(object))
+    )
+    scheme = attrib(
+        init=False, default="", convert=strconv, validator=instance_of(str)
+    )
+    bucket = attrib(
+        init=False, default="", convert=strconv, validator=instance_of(str)
+    )
+    path = attrib(
+        init=False, default="", convert=strconv, validator=instance_of(str))
+    supported = attrib(init=False, default=["file", "gs", "s3", "swift"])
 
     @url.validator
     def __validate_url(self, attribute, value):
@@ -70,12 +79,12 @@ class FileStore(object):
     def __attrs_post_init__(self):
         u = urlparse(self.url)
         self.scheme = u.scheme
-        self.__bucket = u.netloc
+        self.bucket = u.netloc
 
         if self.scheme == "file":
-            self.__path = re.sub("/$", "", u.path)
+            self.path = re.sub("/$", "", u.path)
         else:
-            self.__path = re.sub("^/|/$", "", u.path)
+            self.path = re.sub("^/|/$", "", u.path)
 
         if self.scheme != "file":
             self.provider = get_driver(
@@ -89,9 +98,9 @@ class FileStore(object):
             if self.scheme == "swift":
                 try:
                     auth_url = urlparse(os.environ['OS_AUTH_URL'])
-                    self.ex_force_auth_url = "%s://%s" % (auth_url.scheme,
-                                                          auth_url.netloc)
-                    self.ex_tenant_name = os.environ['OS_TENANT_NAME']
+                    self.swift_force_auth_url = "%s://%s" % (auth_url.scheme,
+                                                             auth_url.netloc)
+                    self.swift_tenant_name = os.environ['OS_TENANT_NAME']
                 except Exception:
                     raise ValueError(
                         "OS_AUTH_URL and/or OS_TENANT_NAME were not found"
@@ -99,9 +108,9 @@ class FileStore(object):
                 self.driver = self.provider(
                     key=self.key,
                     secret=self.secret,
-                    ex_force_auth_url=self.ex_force_auth_url,
-                    ex_tenant_name=self.ex_tenant_name,
-                    ex_force_auth_version=self.ex_force_auth_version,
+                    ex_force_auth_url=self.swift_force_auth_url,
+                    ex_tenant_name=self.swift_tenant_name,
+                    ex_force_auth_version=self.swift_force_auth_version,
                 )
 
             # Google Storage or Amazon S3
@@ -125,24 +134,24 @@ class FileStore(object):
 
     def __create_store(self):
         if self.scheme == "file":
-            makedirs(self.__path, exists_ok=True)
+            makedirs(self.path, exists_ok=True)
         else:
             try:
-                self.driver.get_container(self.__bucket)
+                self.driver.get_container(self.bucket)
             except Exception:
-                self.driver.create_container(self.__bucket)
+                self.driver.create_container(self.bucket)
         return
 
     def __delete_bucket(self):
         if self.scheme == "file":
-            shutil.rmtree(self.__bucket)
+            shutil.rmtree(self.bucket)
         else:
-            self.driver.delete_container(self.__bucket)
+            self.driver.delete_container(self.bucket)
         return
 
     def generate_url(self, name):
         return "%s://%s" % (
-            self.scheme, os.path.join(self.__bucket, self.__path, name)
+            self.scheme, os.path.join(self.bucket, self.path, name)
         )
 
     def exists(self, name, type="file"):
@@ -156,8 +165,8 @@ class FileStore(object):
     def _file_exists(self, name):
         found = False
         if self.scheme == "file":
-            for root, dnames, fnames in os.walk(self.__path):
-                if root != self.__path:
+            for root, dnames, fnames in os.walk(self.path):
+                if root != self.path:
                     fnames = [
                         os.path.join(os.path.basename(root), f) for f in fnames
                     ]
@@ -165,10 +174,10 @@ class FileStore(object):
                     found = True
         else:
             objs = self.driver.list_container_objects(
-                self.driver.get_container(self.__bucket)
+                self.driver.get_container(self.bucket)
             )
             for o in objs:
-                if os.path.join(self.__path, name) == o.name:
+                if os.path.join(self.path, name) == o.name:
                     found = True
 
         return found
@@ -176,15 +185,15 @@ class FileStore(object):
     def _directory_exists(self, name):
         found = False
         if self.scheme == "file":
-            for root, dnames, fnames in os.walk(self.__path):
+            for root, dnames, fnames in os.walk(self.path):
                 if name in dnames:
                     found = True
         else:
             objs = self.driver.list_container_objects(
-                self.driver.get_container(self.__bucket)
+                self.driver.get_container(self.bucket)
             )
             for o in objs:
-                if os.path.join(self.__path, name) in o.name:
+                if os.path.join(self.path, name) in o.name:
                     found = True
 
         return found
@@ -208,7 +217,7 @@ class FileStore(object):
         if isinstance(contents, six.string_types):
             contents = bytes(contents, "utf8")
 
-        url = os.path.join(self.__path, name)
+        url = os.path.join(self.path, name)
 
         if self.scheme == "file":
             if os.path.exists(url) and not overwrite_existing:
@@ -218,9 +227,9 @@ class FileStore(object):
                 fh.write(contents)
         else:
             try:
-                key = u"%s" % (os.path.join(self.__path, name))
+                key = u"%s" % (os.path.join(self.path, name))
                 self.driver.get_object(
-                    self.__bucket, key
+                    self.bucket, key
                 )
                 if not overwrite_existing:
                     raise FileExistsError(self.generate_url(name))
@@ -232,11 +241,11 @@ class FileStore(object):
             tmpf.close()
             self.driver.upload_object(
                 file_path=tmpf.name,
-                container=self.driver.get_container(self.__bucket),
+                container=self.driver.get_container(self.bucket),
                 object_name=url
             )
             os.remove(tmpf.name)
-            return self.scheme + "://" + self.__bucket + "/" + url
+            return self.scheme + "://" + self.bucket + "/" + url
 
         return url
 
@@ -245,11 +254,11 @@ class FileStore(object):
             raise FileExistsError(destination_path)
 
         if self.scheme == "file":
-            shutil.copyfile(os.path.join(self.__path, name), destination_path)
+            shutil.copyfile(os.path.join(self.path, name), destination_path)
         else:
-            key = u"%s" % (os.path.join(self.__path, name))
+            key = u"%s" % (os.path.join(self.path, name))
             obj = self.driver.get_object(
-                self.__bucket, key
+                self.bucket, key
             )
             self.driver.download_object(
                 obj,

@@ -29,8 +29,8 @@ class TestFileStore(unittest.TestCase):
     def test_init(self):
         self.assertTrue(os.path.exists(self.fs_path))
         self.assertEqual(self.fs.scheme, "file")
-        self.assertEqual(self.fs._FileStore__bucket, "")
-        self.assertEqual(self.fs._FileStore__path, self.fs_path)
+        self.assertEqual(self.fs.bucket, "")
+        self.assertEqual(self.fs.path, self.fs_path)
         self.assertEqual(self.fs.key, None)
         self.assertEqual(self.fs.secret, None)
 
@@ -39,8 +39,8 @@ class TestFileStore(unittest.TestCase):
             self.fs.generate_url("1/test"),
             "%s://%s" % (
                 self.fs.scheme,
-                os.path.join(self.fs._FileStore__bucket,
-                             self.fs._FileStore__path,
+                os.path.join(self.fs.bucket,
+                             self.fs.path,
                              "1/test")
             )
         )
