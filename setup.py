@@ -38,12 +38,12 @@ setup(
     package_data={"tesseract": ["resources/*.py"]},
     python_requires='>=2.6, <4',
     install_requires=[
-        "apache_libcloud>=2.1.0",
+        "apache_libcloud>=2.2.1",
         "attrs>=17.2.0",
-        "cloudpickle>=0.3.1",
+        "cloudpickle>=0.4.1",
         "future>=0.16.0",
         "futures>=3.1.1",
-        "py-tes>=0.1.5",
+        "py-tes>=0.1.6",
         "requests>=2.18.1"
     ],
     zip_safe=True,
