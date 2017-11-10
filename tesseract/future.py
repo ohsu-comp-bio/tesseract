@@ -52,7 +52,8 @@ class Future(object):
 
     def done(self):
         r = self.__client.get_task(self.__id, "MINIMAL")
-        return r.state in ["COMPLETE", "ERROR", "SYSTEM_ERROR", "CANCELED"]
+        return r.state in ["COMPLETE", "EXECUTOR_ERROR", "SYSTEM_ERROR",
+                           "CANCELED"]
 
     def cancel(self):
         self.__result.cancel()

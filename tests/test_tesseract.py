@@ -65,13 +65,15 @@ class TestTesseract(unittest.TestCase):
         r.with_input("file:///tmp/input", "/mnt/input")
         r.with_input("file:///tmp/input2", "./input2")
         expected = [
-            tes.TaskParameter(
+            tes.Input(
                 url="file:///tmp/input",
-                path="/mnt/input"
+                path="/mnt/input",
+                type="FILE"
             ),
-            tes.TaskParameter(
+            tes.Input(
                 url="file:///tmp/input2",
-                path="/tmp/tesseract/input2"
+                path="/tmp/tesseract/input2",
+                type="FILE"
             )
         ]
         print("ACTUAL", r.input_files)
@@ -93,12 +95,12 @@ class TestTesseract(unittest.TestCase):
         r.with_output("./output.txt")
         r.with_output("/mnt/output.txt")
         expected = [
-            tes.TaskParameter(
+            tes.Output(
                 path="/tmp/tesseract/output.txt",
                 url=r.file_store.generate_url("testid/output.txt"),
                 type="FILE"
             ),
-            tes.TaskParameter(
+            tes.Output(
                 path="/mnt/output.txt",
                 url=r.file_store.generate_url("testid/mnt/output.txt"),
                 type="FILE"

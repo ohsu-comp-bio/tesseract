@@ -32,10 +32,10 @@ class Tesseract(object):
     )
     timeout = attrib(default=30, validator=instance_of(int))
     input_files = attrib(
-        default=Factory(list), validator=tes.models.list_of(tes.TaskParameter)
+        default=Factory(list), validator=tes.models.list_of(tes.Input)
     )
     output_files = attrib(
-        default=Factory(list), validator=tes.models.list_of(tes.TaskParameter)
+        default=Factory(list), validator=tes.models.list_of(tes.Output)
     )
     cpu_cores = attrib(default=None, validator=optional(instance_of(int)))
     ram_gb = attrib(
@@ -155,7 +155,7 @@ class Tesseract(object):
             )
 
         self.input_files.append(
-            tes.TaskParameter(
+            tes.Input(
                 path=os.path.join("/tmp/tesseract", re.sub("^./", "", path)),
                 url=url,
                 type="FILE"
@@ -178,7 +178,7 @@ class Tesseract(object):
 
         run_id = self.__get_id()
         self.output_files.append(
-            tes.TaskParameter(
+            tes.Output(
                 path=os.path.join("/tmp/tesseract", re.sub("^./", "", path)),
                 url=self.file_store.generate_url(
                     os.path.join(run_id, re.sub("^./|^/", "", path))
@@ -249,21 +249,21 @@ class Tesseract(object):
         task = tes.Task(
             name="tesseract remote execution",
             inputs=self.input_files + [
-                tes.TaskParameter(
+                tes.Input(
                     name="pickled function",
                     url=input_cp_url,
                     path="/tmp/tesseract/func.pickle",
                     type="FILE"
                 ),
-                tes.TaskParameter(
+                tes.Input(
                     name="tesseract runner script",
                     path="/tmp/tesseract/tesseract.py",
                     type="FILE",
-                    contents=str(runner)
+                    content=str(runner)
                 )
             ],
             outputs=self.output_files + [
-                tes.TaskParameter(
+                tes.Output(
                     name="pickled result",
                     url=output_cp_url,
                     path="/tmp/tesseract/result.pickle",
@@ -273,12 +273,12 @@ class Tesseract(object):
             resources=tes.Resources(
                 cpu_cores=self.cpu_cores,
                 ram_gb=self.ram_gb,
-                size_gb=self.disk_gb
+                disk_gb=self.disk_gb
             ),
             executors=[
                 tes.Executor(
-                    image_name=self.docker,
-                    cmd=["sh", "-c", cmd],
+                    image=self.docker,
+                    command=["sh", "-c", cmd],
                     stdout="/tmp/tesseract/stdout",
                     stderr="/tmp/tesseract/stderr",
                     workdir="/tmp/tesseract"

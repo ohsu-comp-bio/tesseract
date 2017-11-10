@@ -17,7 +17,7 @@ install:
   - python setup.py install
 
 before_script:
-  - wget https://github.com/ohsu-comp-bio/funnel/releases/download/0.3.0/funnel-linux-amd64-0.3.0.tar.gz -O /opt/funnel.tar.gz
+  - wget -O /opt/funnel.tar.gz https://github.com/ohsu-comp-bio/funnel/releases/download/0.4.1/funnel-linux-amd64-0.4.1.tar.gz
   - tar -zxvf /opt/funnel.tar.gz -C /opt
   - export PATH=$PATH:/opt
   - docker pull python:2.7
