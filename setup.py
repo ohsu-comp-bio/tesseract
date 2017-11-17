@@ -43,7 +43,7 @@ setup(
         "cloudpickle>=0.4.1",
         "future>=0.16.0",
         "futures>=3.1.1",
-        "py-tes>=0.1.6",
+        "py-tes>=0.2.0",
         "requests>=2.18.1"
     ],
     zip_safe=True,
