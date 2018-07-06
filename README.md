@@ -8,6 +8,13 @@ tesseract
 _tesseract_ is a library that enables the remote execution of python code on 
 systems implementing the [GA4GH Task Execution API](https://github.com/ga4gh/task-execution-schemas).
 
+## Install
+
+Available on [PyPi](https://pypi.org/project/py-tesseract). 
+
+```
+pip install py-tesseract
+```
 
 ## Quick Start
 
